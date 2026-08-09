@@ -5,41 +5,46 @@ import (
 	"testing"
 )
 
-// Verifies that the budget allocator correctly matches strategies and catches deficits.
 func TestGenerateAllocation(t *testing.T) {
 	tests := []struct {
 		name         string
-		income       int64
-		needs        int64
+		input        CurrentFinances
 		expectedName string
 		expectedErr  error
 	}{
 		{
-			name:         "Ideal Framework 50/30/20", 
-			income:       300000, 
-			needs:        120000, 
-			expectedName: "50/30/20 Strategy (Ideal)", 
+			name: "Ideal Framework <= 50%",
+			input: CurrentFinances{
+				Income: 300000,
+				Needs:  120000,
+			},
+			expectedName: "Ideal Framework (Needs <= 50%)",
 			expectedErr:  nil,
 		},
 		{
-			name:         "Fallback Framework 60/30/10", 
-			income:       300000, 
-			needs:        165000, 
-			expectedName: "60/30/10 Strategy (Adjusted)", 
+			name: "Balanced Framework between 50% and 60%",
+			input: CurrentFinances{
+				Income: 300000,
+				Needs:  165000,
+			},
+			expectedName: "Not Ideal But Balanced (50% < Needs <= 60%)",
 			expectedErr:  nil,
 		},
 		{
-			name:         "Budget Deficit Error Triggered", 
-			income:       300000, 
-			needs:        200000, 
-			expectedName: "", 
+			name: "Budget Deficit Error Triggered",
+			input: CurrentFinances{
+				Income: 300000,
+				Needs:  200000,
+			},
+			expectedName: "",
 			expectedErr:  ErrNeedsTooHigh,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			strat, err := GenerateAllocation(tt.income, tt.needs)
+			// Pass the entire CurrentFinances object directly into the function
+			strat, err := GenerateAllocation(tt.input)
 
 			if !errors.Is(err, tt.expectedErr) {
 				t.Errorf("expected error %v, got %v", tt.expectedErr, err)
@@ -49,4 +54,4 @@ func TestGenerateAllocation(t *testing.T) {
 			}
 		})
 	}
-} 
+}
