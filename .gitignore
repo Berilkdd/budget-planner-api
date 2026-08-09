@@ -1,0 +1,16 @@
+# Compiled binaries for Windows / Mac / Linux
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Local build / test artifacts
+bin/
+obj/
+.go/
+
+# Operating System files
+Thumbs.db
+Desktop.ini
+.DS_Store
