@@ -8,8 +8,8 @@ var ErrZeroSavingAllocation = errors.New("monthly savings allocation must be gre
 
 // BufferForecast holds the timing result (months) and the leftover money from the final month.
 type BufferForecast struct {
-	MonthsToBuffer      int64 
-	SurplusContribution int64 // Leftover cash from the final month 
+	Phase1Months  int64 
+	Phase1Surplus int64 // Leftover cash from the final month 
 }
 
 // CalculateBufferTimeline simulates building the core £1,000 baseline cushion with compounding interest.
@@ -21,8 +21,8 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave int64) (BufferForec
 	// 1. If user already hits or exceeds the buffer baseline, Phase 1 takes 0 months
 	if cf.CurrentSavings >= BaselineBuffer {
 		return BufferForecast{
-			MonthsToBuffer:      0,
-			SurplusContribution: 0,
+			Phase1Months:  0,
+			Phase1Surplus: 0,
 		}, nil
 	}
 
@@ -47,8 +47,8 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave int64) (BufferForec
 			surplus := monthlySave - neededToFill
 
 			return BufferForecast{
-				MonthsToBuffer:      months,
-				SurplusContribution: surplus, 
+				Phase1Months:  months,
+				Phase1Surplus: surplus, 
 			}, nil
 		}
 
@@ -57,7 +57,81 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave int64) (BufferForec
 	}
 
 	return BufferForecast{
-		MonthsToBuffer:      months,
-		SurplusContribution: 0,
+		Phase1Months:  months,
+		Phase1Surplus:0,
+	}, nil
+}
+
+// DebtForecast holds the final timeline results and leftover cash after clearing liabilities.
+type DebtForecast struct {
+	TotalMonths         int64 
+	Phase2Surplus       int64 // Leftover cash from the final payoff month 
+	Phase2Months        int64 // Months spent inside Phase 2 active payoff loop
+}
+
+// CalculateDebtTimeline simulates dynamic, compounding debt payoff 
+func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initialSurplus int64) (DebtForecast, error) {
+	// 1. If they have no debt to begin with, Phase 2 takes 0 months
+	if cf.UnsettledDebt <= 0 {
+		return DebtForecast{
+			TotalMonths:   phase1Months, // Total time matches whatever Phase 1 took
+			Phase2Surplus: initialSurplus, // Passes the full cash straight to Phase 3
+			Phase2Months:  0,
+		}, nil
+	}
+
+	// 2. Resolve Interest Rate: Use user input or apply the 24% AER national average fallback 
+	interestAER := cf.DebtInterestRate
+	if interestAER == 0 {
+		interestAER = 2400
+	}
+
+	runningDebt := cf.UnsettledDebt
+	phase2Months := int64(0)
+
+	// 3. The Phase 1 Time: Compounding debt growth while user was building the buffer
+	for i := int64(0); i < phase1Months; i++ {
+		monthlyInterest := (runningDebt * interestAER) / 10000 / 12
+		runningDebt += monthlyInterest
+	}
+
+	// 4. Subtract the Phase 1 leftover surplus immediately before the main loop starts
+	if initialSurplus >= runningDebt {
+		// If surplus cash from Phase 1 completely wipes out the entire debt 
+		leftoverSurplus := initialSurplus - runningDebt
+		return DebtForecast{
+			TotalMonths:   phase1Months, // Stacks Phase 2 onto Phase 1 timeline
+			Phase2Surplus: leftoverSurplus, // Leftover cash to pass to Phase 3
+			Phase2Months:  0,
+		}, nil
+	}
+	runningDebt -= initialSurplus
+
+	// 5. Active Payoff Loop: Month by month compounding and reduction
+	for runningDebt > 0 {
+		phase2Months++
+
+		//Debt grows from monthly interest
+		monthlyInterest := (runningDebt * interestAER) / 10000 / 12
+		runningDebt += monthlyInterest
+
+		// Check if our monthly savings payment completely pays off remaining debt balance
+		if monthlySave >= runningDebt {
+			leftoverSurplus := monthlySave - runningDebt
+			return DebtForecast{
+				TotalMonths: phase1Months + phase2Months, // Stacks Phase 2 onto Phase 1 timeline
+				Phase2Surplus: leftoverSurplus, // Leftover cash to pass to Phase 3
+				Phase2Months: phase2Months,
+			}, nil
+		}
+
+		// Otherwise, make the full monthly payment and continue looping
+		runningDebt -= monthlySave
+	}
+
+	return DebtForecast{
+		TotalMonths:   phase1Months + phase2Months,
+		Phase2Surplus: 0,
+		Phase2Months:  phase2Months,
 	}, nil
 }
