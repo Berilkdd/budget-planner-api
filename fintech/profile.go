@@ -12,5 +12,6 @@ type CurrentFinances struct {
 	Needs            int64
 	CurrentSavings   int64
 	UnsettledDebt    int64
+	DebtInterestRate int64
 	EmploymentStatus EmploymentStatus
 }
