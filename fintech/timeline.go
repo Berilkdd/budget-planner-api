@@ -18,7 +18,15 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave int64) (BufferForec
 		return BufferForecast{}, ErrZeroSavingAllocation
 	}
 
-	// 1. If user already hits or exceeds the buffer baseline, Phase 1 takes 0 months
+	// 1. If user has no active debt, bypass Phase 1 immediately to start collecting emergency fund.
+	if !cf.HasDebt || cf.UnsettledDebt <= 0 {
+		return BufferForecast{
+			Phase1Months:  0,
+			Phase1Surplus: 0,
+		}, nil
+	}
+
+	// 2. If user already hits or exceeds the buffer baseline, Phase 1 takes 0 months
 	if cf.CurrentSavings >= BaselineBuffer {
 		return BufferForecast{
 			Phase1Months:  0,
@@ -32,7 +40,7 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave int64) (BufferForec
 	months := int64(0)
 	runningSavings := cf.CurrentSavings
 
-	// 2. Step forward month by month until the baseline cushion is fully collected
+	// 3. Step forward month by month until the baseline cushion is fully collected
 	for runningSavings < BaselineBuffer {
 		months++
 
@@ -71,7 +79,7 @@ type DebtForecast struct {
 
 // CalculateDebtTimeline simulates dynamic, compounding debt payoff 
 func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initialSurplus int64) (DebtForecast, error) {
-	// 1. If they have no debt to begin with, Phase 2 takes 0 months
+	// If user has no active debt, bypass Phase 2 immediately to start collecting emergency fund.
 	if cf.UnsettledDebt <= 0 {
 		return DebtForecast{
 			TotalMonths:   phase1Months, // Total time matches whatever Phase 1 took
