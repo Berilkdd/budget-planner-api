@@ -1,12 +1,13 @@
 package fintech
 
-import 	(
-	"errors"	
-	"fmt"	
+import (
+	"errors"
+	"fmt"
 )
 // This error triggers if a user's fixed costs eat up more than 60% of their income.
 
 var ErrNeedsTooHigh = errors.New("monthly needs exceed maximum allowed 60% of income")
+var ErrInvalidStatus = errors.New("invalid employment status provided")
 
 type Allocation struct {
 	Needs int64
@@ -98,5 +99,31 @@ func (cf *CurrentFinances) ApplyImmediateDebtPayoff() (string, error) {
 	}
 }
 
+// EmergencyFund represents the long-term cash safety cushion target for the user.
+type EmergencyFund struct {
+	TargetAmount int64 
+	MonthsCount  int64 
+}
 
+// CalculateEmergencyTarget determines target cash reserves based on unemployment risk.
+func CalculateEmergencyTarget(status EmploymentStatus, monthlyNeeds int64) (EmergencyFund, error) {
+	if monthlyNeeds <= 0 {
+		return EmergencyFund{}, errors.New("monthly needs must be greater than zero")
+	}
+
+	switch status {
+	case Employee:
+		return EmergencyFund{
+			TargetAmount: monthlyNeeds * 3,
+			MonthsCount:  3,
+		}, nil
+	case SelfEmployed:
+		return EmergencyFund{
+			TargetAmount: monthlyNeeds * 6,
+			MonthsCount:  6,
+		}, nil
+	default:
+		return EmergencyFund{}, ErrInvalidStatus
+	}
+}
 
