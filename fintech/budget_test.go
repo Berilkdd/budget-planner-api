@@ -157,3 +157,65 @@ func TestApplyImmediateDebtPayoff(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateEmergencyTarget(t *testing.T) {
+	tests := []struct {
+		name           string
+		status         EmploymentStatus
+		monthlyNeeds   int64
+		expectedAmount int64
+		expectedMonths int64
+		expectErr      bool
+	}{
+		{
+			name:           "Full-time Employee 3 Months Buffer",
+			status:         Employee,
+			monthlyNeeds:   120000, 
+			expectedAmount: 360000, 
+			expectedMonths: 3,
+			expectErr:      false,
+		},
+		{
+			name:           "Self-Employed 6 Months Buffer",
+			status:         SelfEmployed,
+			monthlyNeeds:   150000, 
+			expectedAmount: 900000, 
+			expectedMonths: 6,
+			expectErr:      false,
+		},
+		{
+			name:           "Zero Monthly Needs Error Boundary",
+			status:         Employee,
+			monthlyNeeds:   0,
+			expectedAmount: 0,
+			expectedMonths: 0,
+			expectErr:      true,
+		},
+		{
+			name:           "Invalid Employment Status Handling",
+			status:         EmploymentStatus("CONTRACTOR"),
+			monthlyNeeds:   100000,
+			expectedAmount: 0,
+			expectedMonths: 0,
+			expectErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fund, err := CalculateEmergencyTarget(tt.status, tt.monthlyNeeds)
+
+			if (err != nil) != tt.expectErr {
+				t.Fatalf("unexpected error state: got %v", err)
+			}
+
+			if fund.TargetAmount != tt.expectedAmount {
+				t.Errorf("expected target amount %d, got %d", tt.expectedAmount, fund.TargetAmount)
+			}
+
+			if fund.MonthsCount != tt.expectedMonths {
+				t.Errorf("expected months count %d, got %d", tt.expectedMonths, fund.MonthsCount)
+			}
+		})
+	}
+}
