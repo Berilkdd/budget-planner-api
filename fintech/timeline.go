@@ -77,6 +77,7 @@ type DebtForecast struct {
 	TotalMonths         int64 
 	Phase2Surplus       int64 // Leftover cash from the final payoff month 
 	Phase2Months        int64 // Months spent inside Phase 2 active payoff loop
+	TotalInterest       int64 
 }
 
 // CalculateDebtTimeline simulates dynamic, compounding debt payoff 
@@ -90,6 +91,7 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 			TotalMonths:   phase1Months, // Total time matches whatever Phase 1 took
 			Phase2Surplus: initialSurplus, // Passes the full cash straight to Phase 3
 			Phase2Months:  0,
+			TotalInterest: 0,
 		}, nil
 	}
 
@@ -101,13 +103,15 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 
 	runningDebt := cf.UnsettledDebt
 	phase2Months := int64(0)
+	totalInterest := int64(0)
 
 	// 3. The Phase 1 Time: Compounding debt growth while user was building the buffer
 	for i := int64(0); i < phase1Months; i++ {
 		monthlyInterest := (runningDebt * interestAER) / 10000 / 12
 		runningDebt += monthlyInterest
+		totalInterest += monthlyInterest
 	}
-
+	
 	// 4. Subtract the Phase 1 leftover surplus immediately before the main loop starts
 	if initialSurplus >= runningDebt {
 		// If surplus cash from Phase 1 completely wipes out the entire debt 
@@ -116,6 +120,7 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 			TotalMonths:   phase1Months, // Stacks Phase 2 onto Phase 1 timeline
 			Phase2Surplus: leftoverSurplus, // Leftover cash to pass to Phase 3
 			Phase2Months:  0,
+			TotalInterest: totalInterest,
 		}, nil
 	}
 	runningDebt -= initialSurplus
@@ -127,6 +132,7 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 		//Debt grows from monthly interest
 		monthlyInterest := (runningDebt * interestAER) / 10000 / 12
 		runningDebt += monthlyInterest
+		totalInterest += monthlyInterest
 
 		// Check if our monthly savings payment completely pays off remaining debt balance
 		if monthlySave >= runningDebt {
@@ -135,6 +141,7 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 				TotalMonths: phase1Months + phase2Months, // Stacks Phase 2 onto Phase 1 timeline
 				Phase2Surplus: leftoverSurplus, // Leftover cash to pass to Phase 3
 				Phase2Months: phase2Months,
+				TotalInterest: totalInterest,
 			}, nil
 		}
 
@@ -146,6 +153,7 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 		TotalMonths:   phase1Months + phase2Months,
 		Phase2Surplus: 0,
 		Phase2Months:  phase2Months,
+		TotalInterest: totalInterest,
 	}, nil
 }
 
