@@ -84,13 +84,7 @@ func CalculateBaselineBuffer(cf CurrentFinances) (BaselineBuffer, error) {
 }
 
 // ApplyImmediateDebtPayoff uses surplus savings above the baseline buffer to clear active debt.
-func (cf *CurrentFinances) ApplyImmediateDebtPayoff() (string, error) {
-
-	baselineBuffer, err := CalculateBaselineBuffer(*cf)
-
-	if err != nil {
-		return "", err
-	}
+func (cf *CurrentFinances) ApplyImmediateDebtPayoff(baselineBuffer BaselineBuffer) (string, error) {
 
 	// Guard 2: Error for negative debt amount
 	if cf.UnsettledDebt < 0 {
