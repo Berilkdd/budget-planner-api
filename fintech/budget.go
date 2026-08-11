@@ -62,23 +62,34 @@ func GenerateAllocation(cf CurrentFinances) (BudgetStrategy, error) {
 }
 
 // BaselineBuffer represents strict one month of needs baseline safety net.
-func CalculateBaselineBuffer(cf CurrentFinances) int64 {
-    return cf.Needs
+type BaselineBuffer struct {
+	TargetAmount int64
+}
+
+// Guard 1: Defend the core baseline cushion first
+func CalculateBaselineBuffer(cf CurrentFinances) (BaselineBuffer, error) {
+
+	if cf.Needs <= 0 {
+		return BaselineBuffer{}, errors.New("monthly needs must be greater than zero")
+	}
+
+		return BaselineBuffer{
+		TargetAmount: cf.Needs,
+	}, nil
 }
 
 // ApplyImmediateDebtPayoff uses surplus savings above the baseline buffer to clear active debt.
 func (cf *CurrentFinances) ApplyImmediateDebtPayoff() (string, error) {
 
-	BaselineBuffer := CalculateBaselineBuffer(*cf)
+	baselineBuffer, err := CalculateBaselineBuffer(*cf)
 
-	// Guard 1: Defend the core baseline cushion first
-	if cf.CurrentSavings <= BaselineBuffer {
-		return "No action. Balance is below the recommended safety cushion.", nil
+	if err != nil {
+		return "", err
 	}
 
 	// Guard 2: Error for negative debt amount
 	if cf.UnsettledDebt < 0 {
-    return "", errors.New("unsettled debt cannot be negative.")
+    	return "", errors.New("unsettled debt cannot be negative.")
 	}
 
 	// Guard 3: Verify a real liability exists to pay off
@@ -87,7 +98,7 @@ func (cf *CurrentFinances) ApplyImmediateDebtPayoff() (string, error) {
 	}
 
 	// Calculate exactly how much extra cash we are allowed to use
-	availableCash := cf.CurrentSavings - BaselineBuffer
+	availableCash := cf.CurrentSavings - baselineBuffer.TargetAmount
 
 	if availableCash >= cf.UnsettledDebt {
 		// Cash completely wipes out debt, leaving the remainder in savings
@@ -97,7 +108,7 @@ func (cf *CurrentFinances) ApplyImmediateDebtPayoff() (string, error) {
 	} else {
 		// Cash reduces debt partially, safely locking savings exactly at the BaselineBuffer
 		cf.UnsettledDebt -= availableCash
-		cf.CurrentSavings = BaselineBuffer
+		cf.CurrentSavings = baselineBuffer.TargetAmount
 		return fmt.Sprintf("Extra savings applied to debt. Remaining savings locked at £%.2f. Remaining debt: £%.2f.", float64(cf.CurrentSavings)/100, float64(cf.UnsettledDebt)/100), nil
 	}
 }
@@ -128,25 +139,5 @@ func CalculateEmergencyTarget(status EmploymentStatus, monthlyNeeds int64) (Emer
 	default:
 		return EmergencyFund{}, ErrInvalidStatus
 	}
-}
-
-package fintech
-
-type TierAnalysis struct {
-	TierName       string
-	MonthsToTarget int64 
-	TotalFeePaid   int64 
-	TotalInterest  int64 
-	NetReturn      int64 
-}
-
-package fintech
-
-type TierAnalysis struct {
-	TierName       string
-	MonthsToTarget int64 
-	TotalFeePaid   int64 
-	TotalInterest  int64 
-	NetReturn      int64 
 }
 

@@ -15,7 +15,7 @@ type BufferForecast struct {
 }
 
 // CalculateBufferTimeline simulates building the core £1,000 baseline cushion with compounding interest.
-func CalculateBufferTimeline(cf CurrentFinances, monthlySave int64) (BufferForecast, error) {
+func CalculateBufferTimeline(cf CurrentFinances, monthlySave, baselineBuffer int64) (BufferForecast, error) {
 	if monthlySave <= 0 {
 		return BufferForecast{}, ErrZeroSavingAllocation
 	}
@@ -29,7 +29,7 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave int64) (BufferForec
 	}
 
 	// 2. If user already hits or exceeds the buffer baseline, Phase 1 takes 0 months
-	if cf.CurrentSavings >= BaselineBuffer {
+	if cf.CurrentSavings >= baselineBuffer {
 		return BufferForecast{
 			Phase1Months:  0,
 			Phase1Surplus: 0,
@@ -43,7 +43,7 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave int64) (BufferForec
 	runningSavings := cf.CurrentSavings
 
 	// 3. Step forward month by month until the baseline cushion is fully collected
-	for runningSavings < BaselineBuffer {
+	for runningSavings < baselineBuffer {
 		months++
 
 		// Calculate passive compounding monthly interest: (Balance * AER) / 10000 / 12 months
@@ -51,9 +51,9 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave int64) (BufferForec
 		runningSavings += monthlyInterest
 
 		// Check if adding the full monthly deposit exceeds our baseline cushion target
-		if runningSavings+monthlySave >= BaselineBuffer {
+		if runningSavings+monthlySave >= baselineBuffer {
 			// Calculate exactly how much was actually needed to hit exactly £1000
-			neededToFill := BaselineBuffer - runningSavings
+			neededToFill := baselineBuffer - runningSavings
 			surplus := monthlySave - neededToFill
 
 			return BufferForecast{
@@ -166,7 +166,7 @@ type SavingsTierComparison struct {
 }
 
 // SimulateEmergencyFundTiers evaluates all instant access plans to find the fastest path to the user's target.
-func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, phase2Months, phase2Surplus, targetAmount int64) (SavingsTierComparison, error) {
+func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, phase2Months, phase2Surplus, targetAmount, baselineBuffer int64) (SavingsTierComparison, error) {
 	// 1. Calculate the True Starting Balance for Phase 3
 	var baselineCache int64
 	
@@ -175,7 +175,7 @@ func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, p
 		baselineCache = cf.CurrentSavings
 	} else {
 		// Went through Phase 1: User secured the baseline buffer target
-		baselineCache = BaselineBuffer
+		baselineCache = baselineBuffer
 	}
 
 	// Calculate interest growth on that buffer while user spent time on Phase 2 for paying off debt
@@ -260,12 +260,6 @@ func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, p
 	var finalSurplus int64
 	if runningSavings > targetAmount {
 		finalSurplus = runningSavings - targetAmount
-
-		// Custom victory message
-		insight := fmt.Sprintf(
-			"Congratulations! You have hit your emergency fund target. Now you have £%.2f extra to invest or allocate for a targeted savings pot with higher interest.",
-			float64(finalSurplus)/100,
-		)
 	}
 
 	return SavingsTierComparison{
