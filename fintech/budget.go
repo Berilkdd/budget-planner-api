@@ -61,16 +61,19 @@ func GenerateAllocation(cf CurrentFinances) (BudgetStrategy, error) {
 	return BudgetStrategy{}, ErrNeedsTooHigh
 }
 
-
-// BaselineBuffer represents strict £1,000.00 baseline safety net.
-const BaselineBuffer int64 = 100000
+// BaselineBuffer represents strict one month of needs baseline safety net.
+func CalculateBaselineBuffer(cf CurrentFinances) int64 {
+    return cf.Needs
+}
 
 // ApplyImmediateDebtPayoff uses surplus savings above the baseline buffer to clear active debt.
 func (cf *CurrentFinances) ApplyImmediateDebtPayoff() (string, error) {
 
+	BaselineBuffer := CalculateBaselineBuffer(*cf)
+
 	// Guard 1: Defend the core baseline cushion first
 	if cf.CurrentSavings <= BaselineBuffer {
-		return "No action. Balance is below the £1000.00 safety cushion.", nil
+		return "No action. Balance is below the recommended safety cushion.", nil
 	}
 
 	// Guard 2: Error for negative debt amount
@@ -125,5 +128,25 @@ func CalculateEmergencyTarget(status EmploymentStatus, monthlyNeeds int64) (Emer
 	default:
 		return EmergencyFund{}, ErrInvalidStatus
 	}
+}
+
+package fintech
+
+type TierAnalysis struct {
+	TierName       string
+	MonthsToTarget int64 
+	TotalFeePaid   int64 
+	TotalInterest  int64 
+	NetReturn      int64 
+}
+
+package fintech
+
+type TierAnalysis struct {
+	TierName       string
+	MonthsToTarget int64 
+	TotalFeePaid   int64 
+	TotalInterest  int64 
+	NetReturn      int64 
 }
 
