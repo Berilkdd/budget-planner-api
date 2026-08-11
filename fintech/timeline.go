@@ -167,6 +167,10 @@ type SavingsTierComparison struct {
 
 // SimulateEmergencyFundTiers evaluates all instant access plans to find the fastest path to the user's target.
 func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, phase2Months, phase2Surplus, targetAmount, baselineBuffer int64) (SavingsTierComparison, error) {
+	
+	if monthlySave <= 0 {
+		return SavingsTierComparison{}, ErrZeroSavingAllocation
+	}
 	// 1. Calculate the True Starting Balance for Phase 3
 	var baselineCache int64
 	
