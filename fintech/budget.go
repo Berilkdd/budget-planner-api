@@ -97,6 +97,10 @@ func (cf *CurrentFinances) ApplyImmediateDebtPayoff() (string, error) {
 		return "No action. No active liabilities found. Directing to Emergency Fund goals.", nil
 	}
 
+	if cf.CurrentSavings <= baselineBuffer.TargetAmount {
+		return "No action. Balance is below the recommended safety cushion.", nil
+	}
+
 	// Calculate exactly how much extra cash we are allowed to use
 	availableCash := cf.CurrentSavings - baselineBuffer.TargetAmount
 
