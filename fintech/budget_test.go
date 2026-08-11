@@ -67,58 +67,75 @@ func TestApplyImmediateDebtPayoff(t *testing.T) {
 		expectedErr     string
 	}{
 		{
-			name: "Savings below baseline cushion",
+			name: "Savings below one month needs buffer",
 			input: CurrentFinances{
-				CurrentSavings: 80000, 
-				UnsettledDebt:  50000, 
+				Needs:          120000, // £1,200 buffer
+				CurrentSavings: 90000,  // £900
+				UnsettledDebt:  50000,  // £500
 			},
-			expectedMsg:     "No action. Balance is below the £1000.00 safety cushion.",
-			expectedSavings: 80000,
+			expectedMsg:     "No action. Balance is below the recommended safety cushion.",
+			expectedSavings: 90000,
 			expectedDebt:    50000,
 			expectedErr:     "",
 		},
 		{
 			name: "No active debt liability",
 			input: CurrentFinances{
-				CurrentSavings: 150000, 
+				Needs:          180000, // £1,800 buffer
+				CurrentSavings: 250000, // £2,500
 				UnsettledDebt:  0,
 			},
 			expectedMsg:     "No action. No active liabilities found. Directing to Emergency Fund goals.",
-			expectedSavings: 150000,
+			expectedSavings: 250000,
 			expectedDebt:    0,
 			expectedErr:     "",
 		},
 		{
 			name: "Negative debt error boundary",
 			input: CurrentFinances{
-				CurrentSavings: 150000, 
-				UnsettledDebt:  -50000, 
+				Needs:          250000, // £2,500 buffer
+				CurrentSavings: 300000, // £3,000
+				UnsettledDebt:  -50000, // -£500
 			},
 			expectedMsg:     "",
-			expectedSavings: 150000,
+			expectedSavings: 300000,
 			expectedDebt:    -50000,
 			expectedErr:     "unsettled debt cannot be negative.",
 		},
 		{
 			name: "Surplus cash clears total debt",
 			input: CurrentFinances{
-				CurrentSavings: 250000, // (Surplus: £1,500)
-				UnsettledDebt:  50000,  
+				Needs:          120000, // £1,200 buffer
+				CurrentSavings: 300000, // £3,000
+				UnsettledDebt:  50000,  // £500
 			},
-			expectedMsg:     "Debt completely cleared using extra savings. New savings: £2000.00.",
-			expectedSavings: 200000, 
-			expectedDebt:    0,      
+			expectedMsg:     "Debt completely cleared using extra savings. New savings: £2500.00.",
+			expectedSavings: 250000,
+			expectedDebt:    0,
 			expectedErr:     "",
 		},
 		{
 			name: "Surplus cash pays partial debt",
 			input: CurrentFinances{
-				CurrentSavings: 150000, // (Surplus: £500)
-				UnsettledDebt:  120000, 
+				Needs:          150000, // £1,500 buffer
+				CurrentSavings: 220000, // £2,200
+				UnsettledDebt:  100000, // £1,000
 			},
-			expectedMsg:     "Extra savings applied to debt. Remaining savings locked at £1000.00. Remaining debt: £700.00.",
-			expectedSavings: 100000, 
-			expectedDebt:    70000,  
+			expectedMsg:     "Extra savings applied to debt. Remaining savings locked at £1500.00. Remaining debt: £300.00.",
+			expectedSavings: 150000,
+			expectedDebt:    30000,
+			expectedErr:     "",
+		},
+		{
+			name: "Buffer is based on one month of needs",
+			input: CurrentFinances{
+				Needs:          250000, // £2,500 buffer
+				CurrentSavings: 350000, // £3,500
+				UnsettledDebt:  200000, // £2,000
+			},
+			expectedMsg:     "Extra savings applied to debt. Remaining savings locked at £2500.00. Remaining debt: £1000.00.",
+			expectedSavings: 250000,
+			expectedDebt:    100000,
 			expectedErr:     "",
 		},
 	}
