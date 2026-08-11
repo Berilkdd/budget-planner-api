@@ -9,53 +9,140 @@ func TestGenerateAllocation(t *testing.T) {
 	tests := []struct {
 		name         string
 		input        CurrentFinances
-		expectedName string
-		expectedErr  error
+		expectedErr         error
+		expectedNeeds       int64
+		expectedSustainable Allocation
+		expectedModerate    Allocation
+		expectedAggressive  Allocation
 	}{
 		{
-			name: "Ideal Framework <= 50%",
+			name: "Three allocation plans calculated correctly",
 			input: CurrentFinances{
-				Income: 300000,
-				Needs:  120000,
+				Income: 300000, // £3,000
+				Needs:  120000, // £1,200
 			},
-			expectedName: "Ideal Framework (Needs <= 50%)",
-			expectedErr:  nil,
+			expectedErr:   nil,
+			expectedNeeds: 120000,
+			expectedSustainable: Allocation{
+				Needs: 120000,
+				Wants: 90000, // 30%
+				Save:  90000,
+			},
+			expectedModerate: Allocation{
+				Needs: 120000,
+				Wants: 75000, // 25%
+				Save:  105000,
+			},
+			expectedAggressive: Allocation{
+				Needs: 120000,
+				Wants: 60000, // 20%
+				Save:  120000,
+			},
 		},
 		{
-			name: "Balanced Framework between 50% and 60%",
+			name: "Different income and needs calculate correctly",
 			input: CurrentFinances{
-				Income: 300000,
-				Needs:  165000,
+				Income: 240000, // £2,400
+				Needs:  150000, // £1,500
 			},
-			expectedName: "Not Ideal But Balanced (50% < Needs <= 60%)",
-			expectedErr:  nil,
+			expectedErr:   nil,
+			expectedNeeds: 150000,
+			expectedSustainable: Allocation{
+				Needs: 150000,
+				Wants: 72000, // 30%
+				Save:  18000,
+			},
+			expectedModerate: Allocation{
+				Needs: 150000,
+				Wants: 60000, // 25%
+				Save:  30000,
+			},
+			expectedAggressive: Allocation{
+				Needs: 150000,
+				Wants: 48000, // 20%
+				Save:  42000,
+			},
 		},
 		{
-			name: "Budget Deficit Error Triggered",
+			name: "Needs above 60 percent still calculates plans",
 			input: CurrentFinances{
-				Income: 300000,
-				Needs:  200000,
+				Income: 300000, // £3,000
+				Needs:  200000, // £2,000 = 66.67%
 			},
-			expectedName: "",
-			expectedErr:  ErrNeedsTooHigh,
+			expectedErr:   nil,
+			expectedNeeds: 200000,
+			expectedSustainable: Allocation{
+				Needs: 200000,
+				Wants: 90000, // 30%
+				Save:  10000,
+			},
+			expectedModerate: Allocation{
+				Needs: 200000,
+				Wants: 75000, // 25%
+				Save:  25000,
+			},
+			expectedAggressive: Allocation{
+				Needs: 200000,
+				Wants: 60000, // 20%
+				Save:  40000,
+			},
+		},
+		{
+			name: "Zero income error boundary",
+			input: CurrentFinances{
+				Income: 0,
+				Needs:  100000,
+			},
+			expectedErr: ErrZeroIncome,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Pass the entire CurrentFinances object directly into the function
-			strat, err := GenerateAllocation(tt.input)
+			options, err := GenerateAllocation(tt.input)
 
-			if !errors.Is(err, tt.expectedErr) {
-				t.Errorf("expected error %v, got %v", tt.expectedErr, err)
+			if tt.expectedErr != nil {
+				if !errors.Is(err, tt.expectedErr) {
+					t.Errorf("expected error %v, got %v", tt.expectedErr, err)
+				}
+				return
 			}
-			if strat.Name != tt.expectedName {
-				t.Errorf("expected strategy %s, got %s", tt.expectedName, strat.Name)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// Check strategy names.
+			if options.Sustainable.Name != "Sustainable Plan" {
+				t.Errorf("expected Sustainable Plan, got %s", options.Sustainable.Name)
+			}
+
+			if options.Moderate.Name != "Moderate Debt Acceleration" {
+				t.Errorf("expected Moderate Debt Acceleration, got %s", options.Moderate.Name)
+			}
+
+			if options.Aggressive.Name != "Aggressive Debt Acceleration" {
+				t.Errorf("expected Aggressive Debt Acceleration, got %s", options.Aggressive.Name)
+			}
+
+			// Check all three calculations.
+			if options.Sustainable.Allocations != tt.expectedSustainable {
+				t.Errorf("unexpected Sustainable allocation: got %+v, want %+v",
+					options.Sustainable.Allocations, tt.expectedSustainable)
+			}
+
+			if options.Moderate.Allocations != tt.expectedModerate {
+				t.Errorf("unexpected Moderate allocation: got %+v, want %+v",
+					options.Moderate.Allocations, tt.expectedModerate)
+			}
+
+			if options.Aggressive.Allocations != tt.expectedAggressive {
+				t.Errorf("unexpected Aggressive allocation: got %+v, want %+v",
+					options.Aggressive.Allocations, tt.expectedAggressive)
 			}
 		})
 	}
 }
-
 
 func TestApplyImmediateDebtPayoff(t *testing.T) {
 	tests := []struct {
