@@ -2,9 +2,11 @@ package fintech
 
 import (
 	"errors"
+	"fmt"
 )
 
 var ErrZeroSavingAllocation = errors.New("monthly savings allocation must be greater than zero to forecast")
+var ErrSubscriptionFeeDeficit = errors.New("monthly savings allocation is too low to sustain this tier's subscription fee")
 
 // BufferForecast holds the timing result (months) and the leftover money from the final month.
 type BufferForecast struct {
@@ -79,6 +81,9 @@ type DebtForecast struct {
 
 // CalculateDebtTimeline simulates dynamic, compounding debt payoff 
 func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initialSurplus int64) (DebtForecast, error) {
+	if monthlySave <= 0 {
+			return DebtForecast{}, ErrZeroSavingAllocation
+		}
 	// If user has no active debt, bypass Phase 2 immediately to start collecting emergency fund.
 	if cf.UnsettledDebt <= 0 {
 		return DebtForecast{
@@ -141,5 +146,137 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 		TotalMonths:   phase1Months + phase2Months,
 		Phase2Surplus: 0,
 		Phase2Months:  phase2Months,
+	}, nil
+}
+
+// EmergencyFundOption isolates the forecasting metrics for a single instant access tier.
+type EmergencyFundForecast struct {
+	TotalMonths     int64 // Phase 1 + 2 + 3
+	Phase3Months    int64 // Months spent inside Phase 3 active saving loop
+	TotalFeesPaid   int64 // Accumulated subscription fees over the Phase 3 loop 
+	TotalInterest   int64 // Passive compounding interest earned over the Phase 3 loop 
+	Phase3Surplus   int64 // Leftover cash from the final target month 
+	RecommendedTier string //The final tier the user lands on at the target milestone
+}
+
+// SavingsTierComparison collects the results for 4 monzo instant access options.
+type SavingsTierComparison struct {
+	TrueStartingBalance int64 // The cash in CurrentSavings at the exact moment Phase 3 opened
+	Forecast            EmergencyFundForecast
+}
+
+// SimulateEmergencyFundTiers evaluates all instant access plans to find the fastest path to the user's target.
+func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, phase2Months, phase2Surplus, targetAmount int64) (SavingsTierComparison, error) {
+	// 1. Calculate the True Starting Balance for Phase 3
+	var baselineCache int64
+	
+	if !cf.HasDebt {
+		// Bypassed Phase 1 & 2: Start with original savings balance
+		baselineCache = cf.CurrentSavings
+	} else {
+		// Went through Phase 1: User secured the baseline buffer target
+		baselineCache = BaselineBuffer
+	}
+
+	// Calculate interest growth on that buffer while user spent time on Phase 2 for paying off debt
+	const freeAER int64 = 275
+	for i := int64(0); i < phase2Months; i++ {
+		monthlyInterest := (baselineCache * freeAER) / 10000 / 12
+		baselineCache += monthlyInterest
+	}
+
+	// Add any leftover cash surplus from Phase 2
+	trueStartingBalance := baselineCache + phase2Surplus
+
+	// 2. Used Monzo's Instant Access account parameters 
+	tiers := []struct {
+		name string
+		fee  int64 
+		aer  int64 
+	}{
+		{name: "Standard Tier (Instant Access)", fee: 0, aer: 275}, // 2.75% AER
+		{name: "Extra Tier (Instant Access)", fee: 300, aer: 300},  // 3.00% AER
+		{name: "Perks Tier (Instant Access)", fee: 700, aer: 325},  // 3.25% AER
+		{name: "Max Tier (Instant Access)", fee: 1700, aer: 350},   // 3.50% AER
+	}
+
+	// 3. One single time-machine loop to simulate the timeline step-by-step
+	phase3Months := int64(0)
+	runningSavings := trueStartingBalance
+	accumulatedFees := int64(0)
+	accumulatedInterest := int64(0)
+	var activeTierName string
+	var previousTierName string
+
+	for runningSavings < targetAmount {
+		phase3Months++
+
+		// Monthly Challenge 
+		bestPlanIdx := -1
+		var bestNetGrowth int64 = -999999999 // Initial baseline floor to be able to compare data with previous one on each loop
+
+		// Challenge all 4 plans using the current balance to find this month's absolute best performer
+		for idx, t := range tiers {
+			projectedBalance := runningSavings + (monthlySave - t.fee)
+			projectedInterest := (projectedBalance * t.aer) / 10000 / 12
+			totalNetGrowth := monthlySave + projectedInterest - t.fee
+
+			if totalNetGrowth > bestNetGrowth {
+				bestNetGrowth = totalNetGrowth
+				bestPlanIdx = idx
+			}
+		}
+
+		// Prrovide winning tier parameters for messages and this month iteration
+		winningTier := tiers[bestPlanIdx]
+		activeTierName = winningTier.name
+		
+
+		if activeTierName != previousTierName {
+			globalMonthTimeline := phase1Months + phase2Months + phase3Months
+			
+			var logMessage string
+			if phase3Months == 1 {
+				logMessage = fmt.Sprintf("Month %d: Core emergency phase opens. Start on %s for maximized starting returns.", globalMonthTimeline, activeTierName)
+			} else {
+				logMessage = fmt.Sprintf("Month %d: Break-even tipping point reached! Growth scales faster here. Plan switched dynamically to %s.", globalMonthTimeline, activeTierName)
+			}
+			
+			var switchLog []string
+			switchLog = append(switchLog, logMessage)
+			previousTierName = activeTierName
+		}		
+
+		// --- APPLYING THE WINNING TIER'S MATH FOR EACH MONTH ---
+		
+		accumulatedFees += winningTier.fee
+		runningSavings += (monthlySave - winningTier.fee)
+		monthlyInterest := (runningSavings * winningTier.aer) / 10000 / 12
+		accumulatedInterest += monthlyInterest
+		runningSavings += monthlyInterest
+	}
+
+	// Calculate leftover surplus from the final target month
+	var finalSurplus int64
+	if runningSavings > targetAmount {
+		finalSurplus = runningSavings - targetAmount
+
+		// Custom victory message
+		insight := fmt.Sprintf(
+			"Congratulations! You have hit your emergency fund target. Now you have £%.2f extra to invest or allocate for a targeted savings pot with higher interest.",
+			float64(finalSurplus)/100,
+		)
+	}
+
+	return SavingsTierComparison{
+		TrueStartingBalance: trueStartingBalance,
+		Forecast: EmergencyFundForecast{
+			TotalMonths:     phase1Months + phase2Months + phase3Months, // Stacks Phase 3 onto the calendar clock
+			Phase3Months:    phase3Months,
+			TotalFeesPaid:   accumulatedFees,
+			TotalInterest:   accumulatedInterest,
+			Phase3Surplus:   finalSurplus,
+			RecommendedTier: activeTierName,
+		},
 	}, nil
 }
