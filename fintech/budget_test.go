@@ -227,12 +227,16 @@ func TestApplyImmediateDebtPayoff(t *testing.T) {
 		},
 	}
 
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Copy instance to test local mutations safely
 			cf := tt.input
-			msg, err := cf.ApplyImmediateDebtPayoff()
+
+			baselineBuffer, err := CalculateBaselineBuffer(cf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			msg, err := cf.ApplyImmediateDebtPayoff(baselineBuffer)
 
 			// Check if error matches our expected text
 			if tt.expectedErr != "" {
