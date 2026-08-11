@@ -431,3 +431,125 @@ func TestCalculateBufferTimeline(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateDebtTimeline(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            CurrentFinances
+		monthlySave      int64
+		phase1Months     int64
+		initialSurplus   int64
+		expectedTotal    int64
+		expectedPhase2   int64
+		expectedSurplus  int64
+		expectedErr      error
+	}{
+		{
+			name: "Zero monthly saving allocation",
+			input: CurrentFinances{
+				UnsettledDebt: 100000,
+			},
+			monthlySave:     0,
+			phase1Months:    0,
+			initialSurplus:  0,
+			expectedTotal:   0,
+			expectedPhase2:  0,
+			expectedSurplus: 0,
+			expectedErr:     ErrZeroSavingAllocation,
+		},
+		{
+			name: "No active debt bypasses Phase 2",
+			input: CurrentFinances{
+				UnsettledDebt: 0,
+			},
+			monthlySave:     50000,
+			phase1Months:    3,
+			initialSurplus: 20000,
+			expectedTotal:   3,
+			expectedPhase2:  0,
+			expectedSurplus: 20000,
+			expectedErr:     nil,
+		},
+		{
+			name: "Phase 1 surplus completely clears debt",
+			input: CurrentFinances{
+				UnsettledDebt: 50000,
+				DebtInterestRate: 0,
+			},
+			monthlySave:     50000,
+			phase1Months:    2,
+			initialSurplus: 100000,
+			expectedTotal:   2,
+			expectedPhase2:  0,
+			expectedSurplus: 47980,
+			expectedErr:     nil,
+		},
+		{
+			name: "Debt cleared during first Phase 2 month",
+			input: CurrentFinances{
+				UnsettledDebt:     50000,
+				DebtInterestRate: 0,
+			},
+			monthlySave:     100000,
+			phase1Months:    0,
+			initialSurplus:  0,
+			expectedTotal:   1,
+			expectedPhase2:  1,
+			expectedSurplus: 49000,
+			expectedErr:      nil,
+		},
+		{
+			name: "Debt requires multiple Phase 2 months",
+			input: CurrentFinances{
+				UnsettledDebt:     200000,
+				DebtInterestRate: 0,
+			},
+			monthlySave:     50000,
+			phase1Months:    0,
+			initialSurplus:  0,
+			expectedTotal:   5,
+			expectedPhase2:  5,
+			expectedSurplus: 39387,
+			expectedErr:      nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := CalculateDebtTimeline(
+				tt.input,
+				tt.monthlySave,
+				tt.phase1Months,
+				tt.initialSurplus,
+			)
+
+			if !errors.Is(err, tt.expectedErr) {
+				t.Fatalf("expected error %v, got %v", tt.expectedErr, err)
+			}
+
+			if result.TotalMonths != tt.expectedTotal {
+				t.Errorf(
+					"expected TotalMonths %d, got %d",
+					tt.expectedTotal,
+					result.TotalMonths,
+				)
+			}
+
+			if result.Phase2Months != tt.expectedPhase2 {
+				t.Errorf(
+					"expected Phase2Months %d, got %d",
+					tt.expectedPhase2,
+					result.Phase2Months,
+				)
+			}
+
+			if result.Phase2Surplus != tt.expectedSurplus {
+				t.Errorf(
+					"expected Phase2Surplus %d, got %d",
+					tt.expectedSurplus,
+					result.Phase2Surplus,
+				)
+			}
+		})
+	}
+}
