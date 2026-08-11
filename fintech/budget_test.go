@@ -553,3 +553,131 @@ func TestCalculateDebtTimeline(t *testing.T) {
 		})
 	}
 }
+func TestSimulateEmergencyFundTiers(t *testing.T) {
+	tests := []struct {
+		name                string
+		input               CurrentFinances
+		monthlySave         int64
+		phase1Months        int64
+		phase2Months        int64
+		phase2Surplus       int64
+		targetAmount        int64
+		baselineBuffer      int64
+		expectedErr         error
+		expectedStart       int64
+		expectedPhase3      int64
+		expectedTotalMonths int64
+	}{
+		{
+			name: "Zero monthly saving allocation",
+			input: CurrentFinances{
+				CurrentSavings: 100000,
+				HasDebt:        false,
+			},
+			monthlySave:         0,
+			phase1Months:        0,
+			phase2Months:        0,
+			phase2Surplus:       0,
+			targetAmount:        200000,
+			baselineBuffer:      100000,
+			expectedErr:         ErrZeroSavingAllocation,
+		},
+		{
+			name: "No debt starts Phase 3 from current savings",
+			input: CurrentFinances{
+				CurrentSavings: 100000,
+				HasDebt:        false,
+			},
+			monthlySave:         50000,
+			phase1Months:        0,
+			phase2Months:        0,
+			phase2Surplus:       0,
+			targetAmount:        100000,
+			baselineBuffer:      100000,
+			expectedErr:         nil,
+			expectedStart:       100000,
+			expectedPhase3:      0,
+			expectedTotalMonths: 0,
+		},
+		{
+			name: "Debt path starts from buffer plus Phase 2 surplus",
+			input: CurrentFinances{
+				CurrentSavings: 50000,
+				HasDebt:        true,
+			},
+			monthlySave:         50000,
+			phase1Months:        2,
+			phase2Months:        0,
+			phase2Surplus:       25000,
+			targetAmount:        125000,
+			baselineBuffer:      100000,
+			expectedErr:         nil,
+			expectedStart:       125000,
+			expectedPhase3:      0,
+			expectedTotalMonths: 2,
+		},
+		{
+			name: "Emergency target requires Phase 3 saving",
+			input: CurrentFinances{
+				CurrentSavings: 100000,
+				HasDebt:        false,
+			},
+			monthlySave:         50000,
+			phase1Months:        0,
+			phase2Months:        0,
+			phase2Surplus:       0,
+			targetAmount:        200000,
+			baselineBuffer:      100000,
+			expectedErr:         nil,
+			expectedStart:       100000,
+			expectedPhase3:      2,
+			expectedTotalMonths: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := SimulateEmergencyFundTiers(
+				tt.input,
+				tt.monthlySave,
+				tt.phase1Months,
+				tt.phase2Months,
+				tt.phase2Surplus,
+				tt.targetAmount,
+				tt.baselineBuffer,
+			)
+
+			if !errors.Is(err, tt.expectedErr) {
+				t.Fatalf("expected error %v, got %v", tt.expectedErr, err)
+			}
+
+			if tt.expectedErr != nil {
+				return
+			}
+
+			if result.TrueStartingBalance != tt.expectedStart {
+				t.Errorf(
+					"expected TrueStartingBalance %d, got %d",
+					tt.expectedStart,
+					result.TrueStartingBalance,
+				)
+			}
+
+			if result.Forecast.Phase3Months != tt.expectedPhase3 {
+				t.Errorf(
+					"expected Phase3Months %d, got %d",
+					tt.expectedPhase3,
+					result.Forecast.Phase3Months,
+				)
+			}
+
+			if result.Forecast.TotalMonths != tt.expectedTotalMonths {
+				t.Errorf(
+					"expected TotalMonths %d, got %d",
+					tt.expectedTotalMonths,
+					result.Forecast.TotalMonths,
+				)
+			}
+		})
+	}
+}
