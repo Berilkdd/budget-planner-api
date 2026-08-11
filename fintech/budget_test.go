@@ -323,3 +323,111 @@ func TestCalculateEmergencyTarget(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateBufferTimeline(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          CurrentFinances
+		monthlySave    int64
+		baselineBuffer int64
+		expectedMonths int64
+		expectedSurplus int64
+		expectedErr    error
+	}{
+		{
+			name: "Zero monthly saving allocation",
+			input: CurrentFinances{
+				CurrentSavings: 50000,
+				UnsettledDebt:  100000,
+				HasDebt:        true,
+			},
+			monthlySave:     0,
+			baselineBuffer: 100000,
+			expectedMonths:  0,
+			expectedSurplus: 0,
+			expectedErr:     ErrZeroSavingAllocation,
+		},
+		{
+			name: "No active debt bypasses buffer phase",
+			input: CurrentFinances{
+				CurrentSavings: 50000,
+				UnsettledDebt:  0,
+				HasDebt:        false,
+			},
+			monthlySave:     50000,
+			baselineBuffer: 100000,
+			expectedMonths:  0,
+			expectedSurplus: 0,
+			expectedErr:     nil,
+		},
+		{
+			name: "Savings already reaches buffer",
+			input: CurrentFinances{
+				CurrentSavings: 150000,
+				UnsettledDebt:  100000,
+				HasDebt:        true,
+			},
+			monthlySave:     50000,
+			baselineBuffer: 100000,
+			expectedMonths:  0,
+			expectedSurplus: 0,
+			expectedErr:     nil,
+		},
+		{
+			name: "Buffer requires multiple months",
+			input: CurrentFinances{
+				CurrentSavings: 50000,
+				UnsettledDebt:  200000,
+				HasDebt:        true,
+			},
+			monthlySave:     25000,
+			baselineBuffer: 100000,
+			expectedMonths:  2,
+			expectedSurplus: 286,
+			expectedErr:     nil,
+		},
+		{
+			name: "Final month creates surplus",
+			input: CurrentFinances{
+				CurrentSavings: 60000,
+				UnsettledDebt:  200000,
+				HasDebt:        true,
+			},
+			monthlySave:     50000,
+			baselineBuffer: 100000,
+			expectedMonths:  1,
+			expectedSurplus: 10137,
+			expectedErr:     nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := CalculateBufferTimeline(
+				tt.input,
+				tt.monthlySave,
+				tt.baselineBuffer,
+			)
+
+			if !errors.Is(err, tt.expectedErr) {
+				t.Fatalf("expected error %v, got %v", tt.expectedErr, err)
+			}
+
+			if result.Phase1Months != tt.expectedMonths {
+				t.Errorf(
+					"expected Phase1Months %d, got %d",
+					tt.expectedMonths,
+					result.Phase1Months,
+				)
+			}
+
+			if result.Phase1Surplus != tt.expectedSurplus {
+				t.Errorf(
+					"expected Phase1Surplus %d, got %d",
+					tt.expectedSurplus,
+					result.Phase1Surplus,
+				)
+			}
+		})
+	}
+}
