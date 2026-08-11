@@ -137,3 +137,24 @@ func GenerateDebtFreedomStrategies(
 		},
 	}, nil
 }
+
+func SelectDebtFreedomStrategy(
+	strategies DebtFreedomStrategies,
+	decision UserDecisions,
+	) (DebtFreedomPlan, error) {
+
+	switch decision.DebtFreedomStrategy {
+	case "Sustainable":
+		return strategies.Sustainable, nil
+
+	case "Moderate":
+		return strategies.Moderate, nil
+
+	case "Aggressive":
+		return strategies.Aggressive, nil
+
+	default:
+		return DebtFreedomPlan{}, errors.New("invalid debt freedom strategy")
+	}
+}
+
