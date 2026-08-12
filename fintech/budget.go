@@ -160,14 +160,20 @@ func CalculateBestInstantAccessTier(balance int64) InstantAccessTier {
 	}
 
 	bestTier := tiers[0]
-	bestNetGrowth := (balance * bestTier.AER) / 10000 / 12 - bestTier.Fee
+	bestNetGrowth := balance
 
-	for _, tier := range tiers[1:] {
-		monthlyInterest := (balance * tier.AER) / 10000 / 12
-		netGrowth := monthlyInterest - tier.Fee
+	for _, tier := range tiers {
+		balanceAfterFee := balance - tier.Fee
 
-		if netGrowth > bestNetGrowth {
-			bestNetGrowth = netGrowth
+		if balanceAfterFee <= 0 {
+			continue
+		}
+
+		monthlyInterest := (balanceAfterFee * tier.AER) / 10000 / 12
+		finalBalance := balanceAfterFee + monthlyInterest
+
+		if finalBalance > bestNetGrowth {
+			bestNetGrowth = finalBalance
 			bestTier = tier
 		}
 	}
