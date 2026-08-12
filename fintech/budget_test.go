@@ -328,6 +328,49 @@ func TestCalculateEmergencyTarget(t *testing.T) {
 	}
 }
 
+func TestCalculateBestInstantAccessTier(t *testing.T) {
+	tests := []struct {
+		name     string
+		balance  int64
+		expected string
+	}{
+		{
+			name:     "£1000 balance",
+			balance:  100000,
+			expected: "Standard Tier (Instant Access)",
+		},
+		{
+			name:     "£5000 balance",
+			balance:  500000,
+			expected: "Standard Tier (Instant Access)",
+		},
+		{
+			name:     "£10000 balance",
+			balance:  1000000,
+			expected: "Standard Tier (Instant Access)",
+		},
+		{
+			name:     "£50000 balance",
+			balance:  5000000,
+			expected: "Max Tier (Instant Access)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CalculateBestInstantAccessTier(tt.balance)
+
+			if result.Name != tt.expected {
+				t.Errorf(
+					"expected %s, got %s",
+					tt.expected,
+					result.Name,
+				)
+			}
+		})
+	}
+}
+
 func TestCalculateBufferTimeline(t *testing.T) {
 	tests := []struct {
 		name           string

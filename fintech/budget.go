@@ -144,3 +144,33 @@ func CalculateEmergencyTarget(status EmploymentStatus, monthlyNeeds int64) (Emer
 	}
 }
 
+type InstantAccessTier struct {
+	Name string
+	Fee  int64
+	AER  int64
+}
+
+// CalculateBestInstantAccessTier compares all instant access tiers and returns the best option for the given balance.
+func CalculateBestInstantAccessTier(balance int64) InstantAccessTier {
+	tiers := []InstantAccessTier{
+		{Name: "Standard Tier (Instant Access)", Fee: 0, AER: 275},
+		{Name: "Extra Tier (Instant Access)", Fee: 300, AER: 300},
+		{Name: "Perks Tier (Instant Access)", Fee: 700, AER: 325},
+		{Name: "Max Tier (Instant Access)", Fee: 1700, AER: 350},
+	}
+
+	bestTier := tiers[0]
+	bestNetGrowth := (balance * bestTier.AER) / 10000 / 12 - bestTier.Fee
+
+	for _, tier := range tiers[1:] {
+		monthlyInterest := (balance * tier.AER) / 10000 / 12
+		netGrowth := monthlyInterest - tier.Fee
+
+		if netGrowth > bestNetGrowth {
+			bestNetGrowth = netGrowth
+			bestTier = tier
+		}
+	}
+
+	return bestTier
+}
