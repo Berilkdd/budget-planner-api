@@ -728,3 +728,53 @@ func TestSimulateEmergencyFundTiers(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateExcessSavings(t *testing.T) {
+	tests := []struct {
+		name              string
+		cf                CurrentFinances
+		emergencyFund     EmergencyFund
+		wantEmergencyFund int64
+		wantInvestment    int64
+		wantTier          string
+	}{
+		{
+			name: "No debt and savings above emergency fund",
+			cf: CurrentFinances{
+				CurrentSavings: 2000000, // £20,000
+				UnsettledDebt:  0,
+			},
+			emergencyFund: EmergencyFund{
+				TargetAmount: 1200000, // £12,000
+			},
+			wantEmergencyFund: 1200000,
+			wantInvestment:    800000,
+			wantTier:          "Standard Tier (Instant Access)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CalculateExcessSavings(tt.cf, tt.emergencyFund)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if got.EmergencyFundAmount != tt.wantEmergencyFund {
+				t.Errorf("expected emergency fund %d, got %d",
+					tt.wantEmergencyFund, got.EmergencyFundAmount)
+			}
+
+			if got.InvestmentAmount != tt.wantInvestment {
+				t.Errorf("expected investment amount %d, got %d",
+					tt.wantInvestment, got.InvestmentAmount)
+			}
+
+			if got.RecommendedTier.Name != tt.wantTier {
+				t.Errorf("expected %s, got %s",
+					tt.wantTier, got.RecommendedTier.Name)
+			}
+		})
+	}
+}

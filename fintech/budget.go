@@ -180,3 +180,26 @@ func CalculateBestInstantAccessTier(balance int64) InstantAccessTier {
 
 	return bestTier
 }
+
+type ExcessSavingsForecast struct {
+	EmergencyFundAmount int64
+	InvestmentAmount    int64
+	RecommendedTier     InstantAccessTier
+}
+
+// CalculateExcessSavings identifies surplus savings when the user has no debt and has fully funded their emergency fund.
+func CalculateExcessSavings(cf CurrentFinances, emergencyFund EmergencyFund) (ExcessSavingsForecast, error) {
+	if cf.UnsettledDebt == 0 && cf.CurrentSavings >= emergencyFund.TargetAmount {
+		emergencyFundAmount := emergencyFund.TargetAmount
+		investmentAmount := cf.CurrentSavings - emergencyFundAmount
+		bestTier := CalculateBestInstantAccessTier(emergencyFundAmount)
+
+		return ExcessSavingsForecast{
+			EmergencyFundAmount: emergencyFundAmount,
+			InvestmentAmount:    investmentAmount,
+			RecommendedTier:     bestTier,
+		}, nil
+	}
+
+	return ExcessSavingsForecast{}, nil
+}
