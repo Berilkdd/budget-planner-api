@@ -174,7 +174,8 @@ type SavingsTierComparison struct {
 }
 
 // SimulateEmergencyFundTiers evaluates all instant access plans to find the fastest path to the user's target.
-func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, phase2Months, phase2Surplus, targetAmount, baselineBuffer int64) (SavingsTierComparison, error) {
+func SimulateEmergencyFundTiers(
+	cf CurrentFinances, monthlySave, phase1Months, phase2Months, phase2Surplus, targetAmount, baselineBuffer int64) (SavingsTierComparison, error) {
 	
 	if monthlySave <= 0 {
 		return SavingsTierComparison{}, ErrZeroSavingAllocation
@@ -200,18 +201,6 @@ func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, p
 	// Add any leftover cash surplus from Phase 2
 	trueStartingBalance := baselineCache + phase2Surplus
 
-	// 2. Used Monzo's Instant Access account parameters 
-	tiers := []struct {
-		name string
-		fee  int64 
-		aer  int64 
-	}{
-		{name: "Standard Tier (Instant Access)", fee: 0, aer: 275}, // 2.75% AER
-		{name: "Extra Tier (Instant Access)", fee: 300, aer: 300},  // 3.00% AER
-		{name: "Perks Tier (Instant Access)", fee: 700, aer: 325},  // 3.25% AER
-		{name: "Max Tier (Instant Access)", fee: 1700, aer: 350},   // 3.50% AER
-	}
-
 	// 3. One single time-machine loop to simulate the timeline step-by-step
 	phase3Months := int64(0)
 	runningSavings := trueStartingBalance
@@ -222,26 +211,10 @@ func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, p
 
 	for runningSavings < targetAmount {
 		phase3Months++
-
-		// Monthly Challenge 
-		bestPlanIdx := -1
-		var bestNetGrowth int64 = -999999999 // Initial baseline floor to be able to compare data with previous one on each loop
-
-		// Challenge all 4 plans using the current balance to find this month's absolute best performer
-		for idx, t := range tiers {
-			projectedBalance := runningSavings + (monthlySave - t.fee)
-			projectedInterest := (projectedBalance * t.aer) / 10000 / 12
-			totalNetGrowth := monthlySave + projectedInterest - t.fee
-
-			if totalNetGrowth > bestNetGrowth {
-				bestNetGrowth = totalNetGrowth
-				bestPlanIdx = idx
-			}
-		}
-
-		// Prrovide winning tier parameters for messages and this month iteration
-		winningTier := tiers[bestPlanIdx]
-		activeTierName = winningTier.name
+		
+		// Provide winning tier parameters for messages and this month iteration
+		winningTier := CalculateBestInstantAccessTier(runningSavings)
+		activeTierName = winningTier.Name
 		
 
 		if activeTierName != previousTierName {
@@ -261,9 +234,9 @@ func SimulateEmergencyFundTiers(cf CurrentFinances, monthlySave, phase1Months, p
 
 		// --- APPLYING THE WINNING TIER'S MATH FOR EACH MONTH ---
 		
-		accumulatedFees += winningTier.fee
-		runningSavings += (monthlySave - winningTier.fee)
-		monthlyInterest := (runningSavings * winningTier.aer) / 10000 / 12
+		accumulatedFees += winningTier.Fee
+		runningSavings += (monthlySave - winningTier.Fee)
+		monthlyInterest := (runningSavings * winningTier.AER) / 10000 / 12
 		accumulatedInterest += monthlyInterest
 		runningSavings += monthlyInterest
 	}
