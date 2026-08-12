@@ -158,7 +158,34 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 	}, nil
 }
 
-// EmergencyFundOption isolates the forecasting metrics for a single instant access tier.
+type BufferGrowthForecast struct {
+	FinalBuffer    int64
+	TotalInterest  int64
+}
+
+// Simulates the protected buffer earning interest throughout Phase 2 while debt is being paid off
+func CalculateBufferGrowthDuringDebt(
+	initialBuffer int64,
+	phase2Months int64,
+) BufferGrowthForecast {
+	runningBuffer := initialBuffer
+	totalInterest := int64(0)
+
+	for i := int64(0); i < phase2Months; i++ {
+		winningTier := CalculateBestInstantAccessTier(runningBuffer)
+
+		monthlyInterest := (runningBuffer * winningTier.AER) / 10000 / 12
+
+		runningBuffer += monthlyInterest
+		totalInterest += monthlyInterest
+	}
+
+	return BufferGrowthForecast{
+		FinalBuffer:   runningBuffer,
+		TotalInterest: totalInterest,
+	}
+}
+
 type EmergencyFundForecast struct {
 	TotalMonths     int64 // Phase 1 + 2 + 3
 	Phase3Months    int64 // Months spent inside Phase 3 active saving loop
@@ -188,15 +215,13 @@ func SimulateEmergencyFundTiers(
 		// Bypassed Phase 1 & 2: Start with original savings balance
 		baselineCache = cf.CurrentSavings
 	} else {
-		// Went through Phase 1: User secured the baseline buffer target
-		baselineCache = baselineBuffer
-	}
+		// Went through Phase 1: Grow the secured buffer throughout Phase 2
+		bufferGrowth := CalculateBufferGrowthDuringDebt(
+			baselineBuffer,
+			phase2Months,
+		)
 
-	// Calculate interest growth on that buffer while user spent time on Phase 2 for paying off debt
-	const freeAER int64 = 275
-	for i := int64(0); i < phase2Months; i++ {
-		monthlyInterest := (baselineCache * freeAER) / 10000 / 12
-		baselineCache += monthlyInterest
+		baselineCache = bufferGrowth.FinalBuffer
 	}
 
 	// Add any leftover cash surplus from Phase 2
@@ -236,10 +261,13 @@ func SimulateEmergencyFundTiers(
 		// --- APPLYING THE WINNING TIER'S MATH FOR EACH MONTH ---
 		
 		accumulatedFees += winningTier.Fee
-		runningSavings += (monthlySave - winningTier.Fee)
+		runningSavings -= winningTier.Fee
 		monthlyInterest := (runningSavings * winningTier.AER) / 10000 / 12
 		accumulatedInterest += monthlyInterest
 		runningSavings += monthlyInterest
+
+		// Add the monthly saving allocation at the end of the month
+		runningSavings += monthlySave
 	}
 
 	// Calculate leftover surplus from the final target month
