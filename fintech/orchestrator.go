@@ -52,7 +52,6 @@ type DebtFreedomPlan struct {
 	DebtForecast   DebtForecast
 }
 
-
 func GenerateDebtFreedomStrategies(
 	cf CurrentFinances,
 	allocations AllocationOptions,
@@ -158,3 +157,79 @@ func SelectDebtFreedomStrategy(
 	}
 }
 
+type EmergencyFundStrategies struct {
+	Sustainable EmergencyFundPlan
+	Moderate    EmergencyFundPlan
+	Aggressive  EmergencyFundPlan
+}
+
+type EmergencyFundPlan struct {
+	Allocation Allocation
+	Forecast   SavingsTierComparison
+}
+
+func GenerateEmergencyFundStrategies(
+	cf CurrentFinances,
+	allocations AllocationOptions,
+	selectedPlan DebtFreedomPlan,
+	targetAmount int64,
+	baselineBuffer int64,
+) (EmergencyFundStrategies, error) {
+
+	// Sustainable emergency-fund strategy
+	sustainableForecast, err := SimulateEmergencyFundTiers(
+		cf,
+		allocations.Sustainable.Allocations.Save,
+		selectedPlan.DebtForecast.TotalMonths,
+		selectedPlan.DebtForecast.Phase2Months,
+		selectedPlan.DebtForecast.Phase2Surplus,
+		targetAmount,
+		baselineBuffer,
+	)
+	if err != nil {
+		return EmergencyFundStrategies{}, err
+	}
+
+	// Moderate emergency-fund strategy
+	moderateForecast, err := SimulateEmergencyFundTiers(
+		cf,
+		allocations.Moderate.Allocations.Save,
+		selectedPlan.DebtForecast.TotalMonths,
+		selectedPlan.DebtForecast.Phase2Months,
+		selectedPlan.DebtForecast.Phase2Surplus,
+		targetAmount,
+		baselineBuffer,
+	)
+	if err != nil {
+		return EmergencyFundStrategies{}, err
+	}
+
+	// Aggressive emergency-fund strategy
+	aggressiveForecast, err := SimulateEmergencyFundTiers(
+		cf,
+		allocations.Aggressive.Allocations.Save,
+		selectedPlan.DebtForecast.TotalMonths,
+		selectedPlan.DebtForecast.Phase2Months,
+		selectedPlan.DebtForecast.Phase2Surplus,
+		targetAmount,
+		baselineBuffer,
+	)
+	if err != nil {
+		return EmergencyFundStrategies{}, err
+	}
+
+	return EmergencyFundStrategies{
+		Sustainable: EmergencyFundPlan{
+			Allocation: allocations.Sustainable.Allocations,
+			Forecast:   sustainableForecast,
+		},
+		Moderate: EmergencyFundPlan{
+			Allocation: allocations.Moderate.Allocations,
+			Forecast:   moderateForecast,
+		},
+		Aggressive: EmergencyFundPlan{
+			Allocation: allocations.Aggressive.Allocations,
+			Forecast:   aggressiveForecast,
+		},
+	}, nil
+}
