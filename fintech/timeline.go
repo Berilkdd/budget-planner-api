@@ -36,9 +36,6 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave, baselineBuffer int
 		}, nil
 	}
 
-	// Base rate 2.75% AER (represented as 275 basis points)
-	const baseAER int64 = 275
-
 	months := int64(0)
 	runningSavings := cf.CurrentSavings
 
@@ -46,24 +43,28 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave, baselineBuffer int
 	for runningSavings < baselineBuffer {
 		months++
 
-		// Calculate passive compounding monthly interest: (Balance * AER) / 10000 / 12 months
-		monthlyInterest := (runningSavings * baseAER) / 10000 / 12
+		// Calculate the best instant access tier for the current buffer balance
+		winningTier := CalculateBestInstantAccessTier(runningSavings)
+
+		// Apply the monthly saving allocation and the winning tier's fee
+		runningSavings -= winningTier.Fee
+
+		// Calculate interest using the winning tier
+		monthlyInterest := (runningSavings * winningTier.AER) / 10000 / 12
 		runningSavings += monthlyInterest
 
-		// Check if adding the full monthly deposit exceeds our baseline cushion target
-		if runningSavings+monthlySave >= baselineBuffer {
-			// Calculate exactly how much was actually needed to hit exactly £1000
-			neededToFill := baselineBuffer - runningSavings
-			surplus := monthlySave - neededToFill
+		// Add the monthly saving allocation at the end of the month
+		runningSavings += monthlySave
+
+		// Check if the buffer baseline has been reached
+		if runningSavings >= baselineBuffer {
+			surplus := runningSavings - baselineBuffer
 
 			return BufferForecast{
 				Phase1Months:  months,
-				Phase1Surplus: surplus, 
+				Phase1Surplus: surplus,
 			}, nil
-		}
-
-		// Otherwise, use full monthly save allocation and keep looping
-		runningSavings += monthlySave
+		}		
 	}
 
 	return BufferForecast{
