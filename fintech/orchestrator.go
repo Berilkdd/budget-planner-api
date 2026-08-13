@@ -1,15 +1,12 @@
 package fintech
 
+import "errors"
+
 type FinancialAssessment struct {
 	CurrentFinances CurrentFinances
 	BaselineBuffer  BaselineBuffer
 	ActionMessage   string
 	Allocations     AllocationOptions
-}
-
-type EmergencyFundPlan struct {
-	Allocation Allocation
-	Forecast   SavingsTierComparison
 }
 
 func AssessCurrentFinancialPosition(cf CurrentFinances) (FinancialAssessment, error) {
@@ -44,6 +41,7 @@ type DebtFreedomStrategies struct {
 	Sustainable DebtFreedomPlan
 	Moderate    DebtFreedomPlan
 	Aggressive  DebtFreedomPlan
+	Custom      DebtFreedomPlan
 }
 
 type DebtFreedomPlan struct {
@@ -56,7 +54,7 @@ func GenerateDebtFreedomStrategies(
 	cf CurrentFinances,
 	allocations AllocationOptions,
 	baselineBuffer BaselineBuffer,
-	) (DebtFreedomStrategies, error) {
+) (DebtFreedomStrategies, error) {
 
 	// Sustainable Plan
 	sustainableBuffer, err := CalculateBufferTimeline(
@@ -137,23 +135,26 @@ func GenerateDebtFreedomStrategies(
 	}, nil
 }
 
-func SelectDebtFreedomStrategy(
-	strategies DebtFreedomStrategies,
-	decision UserDecisions,
-	) (DebtFreedomPlan, error) {
+func SelectFinancialStrategy[T any](
+	strategy string,
+	sustainable T,
+	moderate T,
+	aggressive T,
+) (T, error) {
 
-	switch decision.DebtFreedomStrategy {
+	switch strategy {
 	case "Sustainable":
-		return strategies.Sustainable, nil
+		return sustainable, nil
 
 	case "Moderate":
-		return strategies.Moderate, nil
+		return moderate, nil
 
 	case "Aggressive":
-		return strategies.Aggressive, nil
+		return aggressive, nil
 
 	default:
-		return DebtFreedomPlan{}, errors.New("invalid debt freedom strategy")
+		var zero T
+		return zero, errors.New("invalid financial strategy")
 	}
 }
 
@@ -161,6 +162,7 @@ type EmergencyFundStrategies struct {
 	Sustainable EmergencyFundPlan
 	Moderate    EmergencyFundPlan
 	Aggressive  EmergencyFundPlan
+	Custom      EmergencyFundPlan
 }
 
 type EmergencyFundPlan struct {
