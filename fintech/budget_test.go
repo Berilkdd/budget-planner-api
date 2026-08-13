@@ -144,6 +144,95 @@ func TestGenerateAllocation(t *testing.T) {
 	}
 }
 
+func TestGenerateCustomAllocation(t *testing.T) {
+	tests := []struct {
+		name               string
+		input              CurrentFinances
+		customContribution int64
+		expectedErr        error
+		expected            Allocation
+	}{
+		{
+			name: "Custom contribution calculates wants correctly",
+			input: CurrentFinances{
+				Income: 300000, // £3,000
+				Needs:  120000, // £1,200
+			},
+			customContribution: 80000, // £800
+			expectedErr:        nil,
+			expected: Allocation{
+				Needs: 120000,
+				Wants: 100000,
+				Save:  80000,
+			},
+		},
+		{
+			name: "Different income and needs calculate correctly",
+			input: CurrentFinances{
+				Income: 240000, // £2,400
+				Needs:  150000, // £1,500
+			},
+			customContribution: 50000, // £500
+			expectedErr:        nil,
+			expected: Allocation{
+				Needs: 150000,
+				Wants: 40000,
+				Save:  50000,
+			},
+		},
+		{
+			name: "Zero custom contribution error",
+			input: CurrentFinances{
+				Income: 300000,
+				Needs:  120000,
+			},
+			customContribution: 0,
+			expectedErr:        ErrZeroSavingAllocation,
+		},
+		{
+			name: "Contribution exceeds available income",
+			input: CurrentFinances{
+				Income: 300000,
+				Needs:  120000,
+			},
+			customContribution: 200000, // More than £1,800 available
+			expectedErr:        ErrContributionExceedsAvailableIncome,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plan, err := GenerateCustomAllocation(
+				tt.input,
+				tt.customContribution,
+			)
+
+			if tt.expectedErr != nil {
+				if !errors.Is(err, tt.expectedErr) {
+					t.Errorf("expected error %v, got %v", tt.expectedErr, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if plan.Name != "Custom Plan" {
+				t.Errorf("expected Custom Plan, got %s", plan.Name)
+			}
+
+			if plan.Allocations != tt.expected {
+				t.Errorf(
+					"unexpected Custom allocation: got %+v, want %+v",
+					plan.Allocations,
+					tt.expected,
+				)
+			}
+		})
+	}
+}
+
 func TestApplyImmediateDebtPayoff(t *testing.T) {
 	tests := []struct {
 		name            string

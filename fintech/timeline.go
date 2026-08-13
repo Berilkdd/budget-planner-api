@@ -1,12 +1,9 @@
 package fintech
 
 import (
-	"errors"
+	
 	"fmt"
 )
-
-var ErrZeroSavingAllocation = errors.New("monthly savings allocation must be greater than zero to forecast")
-var ErrSubscriptionFeeDeficit = errors.New("monthly savings allocation is too low to sustain this tier's subscription fee")
 
 // BufferForecast holds the timing result (months) and the leftover money from the final month.
 type BufferForecast struct {

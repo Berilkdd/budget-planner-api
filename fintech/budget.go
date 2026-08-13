@@ -4,10 +4,6 @@ import (
 	"errors"
 	"fmt"
 )
-// This error triggers if a user's fixed costs eat up more than 60% of their income.
-
-var ErrZeroIncome = errors.New("income must be greater than zero")
-var ErrInvalidStatus = errors.New("invalid employment status provided")
 
 type Allocation struct {
 	Needs int64
@@ -24,6 +20,7 @@ type AllocationOptions struct {
 	Sustainable BudgetStrategy
 	Moderate    BudgetStrategy
 	Aggressive  BudgetStrategy
+	Custom      BudgetStrategy
 }
 
 // Creates custom plan for user based on their income and needs.
@@ -62,6 +59,28 @@ func GenerateAllocation(cf CurrentFinances) (AllocationOptions, error) {
 				Wants: aggressiveWants,
 				Save:  cf.Income - cf.Needs - aggressiveWants,
 			},
+		},
+	}, nil
+}
+
+// GenerateCustomAllocation creates a custom budget plan from the user's chosen monthly contribution.
+func GenerateCustomAllocation(cf CurrentFinances, customContribution int64) (BudgetStrategy, error) {
+	if customContribution <= 0 {
+		return BudgetStrategy{}, ErrZeroSavingAllocation
+	}
+
+	availableAfterNeeds := cf.Income - cf.Needs
+
+	if customContribution > availableAfterNeeds {
+		return BudgetStrategy{}, ErrContributionExceedsAvailableIncome
+	}
+
+	return BudgetStrategy{
+		Name: "Custom Plan",
+		Allocations: Allocation{
+			Needs: cf.Needs,
+			Wants: cf.Income - cf.Needs - customContribution,
+			Save:  customContribution,
 		},
 	}, nil
 }
@@ -209,7 +228,7 @@ type DMPAssessment struct {
 	Reasons     []string
 }
 
-// AssessDMPNeed checks the aggressive debt forecast against the DMP safety thresholds
+// AssessDMPNeed checks the aggressive debt forecast against the DMP safety thresholds.
 func AssessDMPNeed(cf CurrentFinances, aggressive DebtForecast) DMPAssessment {
 	var reasons []string
 
