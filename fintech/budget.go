@@ -203,3 +203,30 @@ func CalculateExcessSavings(cf CurrentFinances, emergencyFund EmergencyFund) (Ex
 
 	return ExcessSavingsForecast{}, nil
 }
+
+type DMPAssessment struct {
+	DMPRequired bool
+	Reasons     []string
+}
+
+// AssessDMPNeed checks the aggressive debt forecast against the DMP safety thresholds
+func AssessDMPNeed(cf CurrentFinances, aggressive DebtForecast) DMPAssessment {
+	var reasons []string
+
+	if aggressive.InterestOver50Percent {
+		reasons = append(reasons, "More than 50% of the monthly debt contribution is being consumed by interest.")
+	}
+
+	if cf.UnsettledDebt > (cf.Income * 12 / 2) {
+		reasons = append(reasons, "Debt exceeds 50% of annual income.")
+	}
+
+	if aggressive.TotalMonths > 36 {
+		reasons = append(reasons, "Aggressive debt payoff takes more than 36 months.")
+	}
+
+	return DMPAssessment{
+		DMPRequired: len(reasons) > 0,
+		Reasons:     reasons,
+	}
+}

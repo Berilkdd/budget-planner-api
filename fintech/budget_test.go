@@ -778,3 +778,101 @@ func TestCalculateExcessSavings(t *testing.T) {
 		})
 	}
 }
+
+func TestAssessDMPNeed(t *testing.T) {
+	tests := []struct {
+		name             string
+		cf               CurrentFinances
+		aggressive       DebtForecast
+		wantDMP          bool
+		wantReasonCount  int
+	}{
+		{
+			name: "Interest exceeds 50 percent of monthly contribution",
+			cf: CurrentFinances{
+				Income:        300000,
+				UnsettledDebt: 1000000,
+			},
+			aggressive: DebtForecast{
+				InterestOver50Percent: true,
+				TotalMonths:           20,
+			},
+			wantDMP:         true,
+			wantReasonCount: 1,
+		},
+		{
+			name: "Debt exceeds 50 percent of annual income",
+			cf: CurrentFinances{
+				Income:        200000,
+				UnsettledDebt: 1500000,
+			},
+			aggressive: DebtForecast{
+				InterestOver50Percent: false,
+				TotalMonths:           20,
+			},
+			wantDMP:         true,
+			wantReasonCount: 1,
+		},
+		{
+			name: "Aggressive payoff takes more than 36 months",
+			cf: CurrentFinances{
+				Income:        300000,
+				UnsettledDebt: 500000,
+			},
+			aggressive: DebtForecast{
+				InterestOver50Percent: false,
+				TotalMonths:           37,
+			},
+			wantDMP:         true,
+			wantReasonCount: 1,
+		},
+		{
+			name: "No DMP conditions triggered",
+			cf: CurrentFinances{
+				Income:        300000,
+				UnsettledDebt: 500000,
+			},
+			aggressive: DebtForecast{
+				InterestOver50Percent: false,
+				TotalMonths:           24,
+			},
+			wantDMP:         false,
+			wantReasonCount: 0,
+		},
+		{
+			name: "Multiple DMP conditions triggered",
+			cf: CurrentFinances{
+				Income:        200000,
+				UnsettledDebt: 1500000,
+			},
+			aggressive: DebtForecast{
+				InterestOver50Percent: true,
+				TotalMonths:           48,
+			},
+			wantDMP:         true,
+			wantReasonCount: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := AssessDMPNeed(tt.cf, tt.aggressive)
+
+			if got.DMPRequired != tt.wantDMP {
+				t.Errorf(
+					"expected DMPRequired %v, got %v",
+					tt.wantDMP,
+					got.DMPRequired,
+				)
+			}
+
+			if len(got.Reasons) != tt.wantReasonCount {
+				t.Errorf(
+					"expected %d reasons, got %d",
+					tt.wantReasonCount,
+					len(got.Reasons),
+				)
+			}
+		})
+	}
+}

@@ -75,10 +75,11 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave, baselineBuffer int
 
 // DebtForecast holds the final timeline results and leftover cash after clearing liabilities.
 type DebtForecast struct {
-	TotalMonths         int64 
-	Phase2Surplus       int64 // Leftover cash from the final payoff month 
-	Phase2Months        int64 // Months spent inside Phase 2 active payoff loop
-	TotalInterest       int64 
+	TotalMonths           int64 
+	Phase2Surplus         int64 // Leftover cash from the final payoff month 
+	Phase2Months          int64 // Months spent inside Phase 2 active payoff loop
+	TotalInterest         int64 
+	InterestOver50Percent bool
 }
 
 // CalculateDebtTimeline simulates dynamic, compounding debt payoff 
@@ -105,6 +106,7 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 	runningDebt := cf.UnsettledDebt
 	phase2Months := int64(0)
 	totalInterest := int64(0)
+	interestOver50Percent := false
 
 	// 3. The Phase 1 Time: Compounding debt growth while user was building the buffer
 	for i := int64(0); i < phase1Months; i++ {
@@ -112,7 +114,7 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 		runningDebt += monthlyInterest
 		totalInterest += monthlyInterest
 	}
-	
+
 	// 4. Subtract the Phase 1 leftover surplus immediately before the main loop starts
 	if initialSurplus >= runningDebt {
 		// If surplus cash from Phase 1 completely wipes out the entire debt 
@@ -135,6 +137,10 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 		runningDebt += monthlyInterest
 		totalInterest += monthlyInterest
 
+		if monthlyInterest > monthlySave/2 {
+			interestOver50Percent = true
+		}
+
 		// Check if our monthly savings payment completely pays off remaining debt balance
 		if monthlySave >= runningDebt {
 			leftoverSurplus := monthlySave - runningDebt
@@ -151,10 +157,11 @@ func CalculateDebtTimeline(cf CurrentFinances, monthlySave, phase1Months, initia
 	}
 
 	return DebtForecast{
-		TotalMonths:   phase1Months + phase2Months,
-		Phase2Surplus: 0,
-		Phase2Months:  phase2Months,
-		TotalInterest: totalInterest,
+		TotalMonths:           phase1Months + phase2Months,
+		Phase2Surplus:         0,
+		Phase2Months:          phase2Months,
+		TotalInterest:         totalInterest,
+		InterestOver50Percent: interestOver50Percent,
 	}, nil
 }
 
