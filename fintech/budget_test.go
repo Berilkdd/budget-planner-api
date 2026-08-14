@@ -1247,3 +1247,103 @@ func TestGenerateDebtFreedomStrategies(t *testing.T) {
 		)
 	}
 }
+
+func TestGenerateEmergencyFundStrategies(t *testing.T) {
+
+	cf := CurrentFinances{
+		Income:           300000,
+		Needs:            150000,
+		CurrentSavings:   100000,
+		HasDebt:          true,
+		UnsettledDebt:    100,
+		DebtInterestRate: 2400,
+		EmploymentStatus: Employee,
+	}
+
+	allocations := AllocationOptions{
+		Sustainable: BudgetStrategy{
+			Name:      "Sustainable Plan",
+			Available: false,
+			Allocations: Allocation{
+				Needs: 150000,
+				Wants: 90000,
+				Save:  60000,
+			},
+		},
+		Moderate: BudgetStrategy{
+			Name:      "Moderate Plan",
+			Available: true,
+			Allocations: Allocation{
+				Needs: 150000,
+				Wants: 75000,
+				Save: 75000,
+			},
+		},
+		Aggressive: BudgetStrategy{
+			Name:      "Aggressive Plan",
+			Available: true,
+			Allocations: Allocation{
+				Needs: 150000,
+				Wants: 60000,
+				Save: 90000,
+			},
+		},
+	}
+
+	selectedPlan := DebtFreedomPlan{
+		Available: true,
+		Allocation: allocations.Moderate.Allocations,
+		DebtForecast: DebtForecast{
+			TotalMonths:    1,
+			Phase2Months:   1,
+			Phase2Surplus:  0,
+		},
+	}
+
+	targetAmount := int64(3000)
+	baselineBuffer := int64(1000)
+
+	customContribution := int64(50000)
+
+	result, err := GenerateEmergencyFundStrategies(
+		cf,
+		allocations,
+		selectedPlan,
+		targetAmount,
+		baselineBuffer,
+		customContribution,
+	)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Sustainable should be unavailable.
+	if result.Sustainable.Available {
+		t.Error("expected Sustainable plan to be unavailable")
+	}
+
+	// Moderate should be available.
+	if !result.Moderate.Available {
+		t.Error("expected Moderate plan to be available")
+	}
+
+	// Aggressive should be available.
+	if !result.Aggressive.Available {
+		t.Error("expected Aggressive plan to be available")
+	}
+
+	// Custom should be available.
+	if !result.Custom.Available {
+		t.Error("expected Custom plan to be available")
+	}
+
+	// Custom contribution should be used as the saving allocation.
+	if result.Custom.Allocation.Save != customContribution {
+		t.Errorf(
+			"expected Custom saving allocation %d, got %d",
+			customContribution,
+			result.Custom.Allocation.Save,
+		)
+	}
+}

@@ -1,7 +1,6 @@
 package fintech
 
-import (
-	"errors"
+import (	
 	"fmt"
 )
 
@@ -389,46 +388,98 @@ func GenerateDebtFreedomStrategies(
 	}, nil
 }
 
+type EmergencyFundStrategies struct {
+	Sustainable EmergencyFundPlan
+	Moderate    EmergencyFundPlan
+	Aggressive  EmergencyFundPlan
+	Custom      EmergencyFundPlan
+}
+
+type EmergencyFundPlan struct {
+	Available  bool
+	Allocation Allocation
+	Forecast   SavingsTierComparison
+}
+
 func GenerateEmergencyFundStrategies(
 	cf CurrentFinances,
 	allocations AllocationOptions,
 	selectedPlan DebtFreedomPlan,
 	targetAmount int64,
 	baselineBuffer int64,
+	customContribution int64,
 ) (EmergencyFundStrategies, error) {
 
+	var sustainableForecast SavingsTierComparison
+	var moderateForecast SavingsTierComparison
+	var aggressiveForecast SavingsTierComparison
+	var customForecast SavingsTierComparison
+
+	var err error
+
 	// Sustainable emergency-fund strategy
-	sustainableForecast, err := SimulateEmergencyFundTiers(
-		cf,
-		allocations.Sustainable.Allocations.Save,
-		selectedPlan.DebtForecast.TotalMonths,
-		selectedPlan.DebtForecast.Phase2Months,
-		selectedPlan.DebtForecast.Phase2Surplus,
-		targetAmount,
-		baselineBuffer,
-	)
-	if err != nil {
-		return EmergencyFundStrategies{}, err
+	if allocations.Sustainable.Available {
+
+		sustainableForecast, err = SimulateEmergencyFundTiers(
+			cf,
+			allocations.Sustainable.Allocations.Save,
+			selectedPlan.DebtForecast.TotalMonths,
+			selectedPlan.DebtForecast.Phase2Months,
+			selectedPlan.DebtForecast.Phase2Surplus,
+			targetAmount,
+			baselineBuffer,
+		)
+		if err != nil {
+			return EmergencyFundStrategies{}, err
+		}
 	}
 
 	// Moderate emergency-fund strategy
-	moderateForecast, err := SimulateEmergencyFundTiers(
+	if allocations.Moderate.Available {
+
+		moderateForecast, err = SimulateEmergencyFundTiers(
+			cf,
+			allocations.Moderate.Allocations.Save,
+			selectedPlan.DebtForecast.TotalMonths,
+			selectedPlan.DebtForecast.Phase2Months,
+			selectedPlan.DebtForecast.Phase2Surplus,
+			targetAmount,
+			baselineBuffer,
+		)
+		if err != nil {
+			return EmergencyFundStrategies{}, err
+		}
+	}
+
+	// Aggressive emergency-fund strategy
+	if allocations.Aggressive.Available {
+
+		aggressiveForecast, err = SimulateEmergencyFundTiers(
+			cf,
+			allocations.Aggressive.Allocations.Save,
+			selectedPlan.DebtForecast.TotalMonths,
+			selectedPlan.DebtForecast.Phase2Months,
+			selectedPlan.DebtForecast.Phase2Surplus,
+			targetAmount,
+			baselineBuffer,
+		)
+		if err != nil {
+			return EmergencyFundStrategies{}, err
+		}
+	}
+
+	// Custom emergency-fund strategy
+	customPlan, err := GenerateCustomAllocation(
 		cf,
-		allocations.Moderate.Allocations.Save,
-		selectedPlan.DebtForecast.TotalMonths,
-		selectedPlan.DebtForecast.Phase2Months,
-		selectedPlan.DebtForecast.Phase2Surplus,
-		targetAmount,
-		baselineBuffer,
+		customContribution,
 	)
 	if err != nil {
 		return EmergencyFundStrategies{}, err
 	}
 
-	// Aggressive emergency-fund strategy
-	aggressiveForecast, err := SimulateEmergencyFundTiers(
+	customForecast, err = SimulateEmergencyFundTiers(
 		cf,
-		allocations.Aggressive.Allocations.Save,
+		customPlan.Allocations.Save,
 		selectedPlan.DebtForecast.TotalMonths,
 		selectedPlan.DebtForecast.Phase2Months,
 		selectedPlan.DebtForecast.Phase2Surplus,
@@ -441,51 +492,27 @@ func GenerateEmergencyFundStrategies(
 
 	return EmergencyFundStrategies{
 		Sustainable: EmergencyFundPlan{
+			Available:  allocations.Sustainable.Available,
 			Allocation: allocations.Sustainable.Allocations,
 			Forecast:   sustainableForecast,
 		},
 		Moderate: EmergencyFundPlan{
+			Available:  allocations.Moderate.Available,
 			Allocation: allocations.Moderate.Allocations,
 			Forecast:   moderateForecast,
 		},
 		Aggressive: EmergencyFundPlan{
+			Available:  allocations.Aggressive.Available,
 			Allocation: allocations.Aggressive.Allocations,
 			Forecast:   aggressiveForecast,
+		},
+		Custom: EmergencyFundPlan{
+			Available:  true,
+			Allocation: customPlan.Allocations,
+			Forecast:   customForecast,
 		},
 	}, nil
 }
 
-func SelectFinancialStrategy[T any](
-	strategy string,
-	sustainable T,
-	moderate T,
-	aggressive T,
-) (T, error) {
 
-	switch strategy {
-	case "Sustainable":
-		return sustainable, nil
 
-	case "Moderate":
-		return moderate, nil
-
-	case "Aggressive":
-		return aggressive, nil
-
-	default:
-		var zero T
-		return zero, errors.New("invalid financial strategy")
-	}
-}
-
-type EmergencyFundStrategies struct {
-	Sustainable EmergencyFundPlan
-	Moderate    EmergencyFundPlan
-	Aggressive  EmergencyFundPlan
-	Custom      EmergencyFundPlan
-}
-
-type EmergencyFundPlan struct {
-	Allocation Allocation
-	Forecast   SavingsTierComparison
-}
