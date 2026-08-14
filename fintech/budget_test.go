@@ -1347,3 +1347,85 @@ func TestGenerateEmergencyFundStrategies(t *testing.T) {
 		)
 	}
 }
+
+func TestAssessNeedsPosition(t *testing.T) {
+	tests := []struct {
+		name          string
+		income        int64
+		needs         int64
+		expectedPath  PathwayCode
+		expectedWarn  WarningCode
+	}{
+		{
+			name:         "Needs below 50 percent",
+			income:       300000,
+			needs:        120000, // 40%
+			expectedPath: PathwayE1,
+			expectedWarn: WarningNeedsBelow50,
+		},
+		{
+			name:         "Needs equal 50 percent",
+			income:       300000,
+			needs:        150000, // 50%
+			expectedPath: PathwayE2,
+			expectedWarn: WarningNeedsEqual50,
+		},
+		{
+			name:         "Needs above 50 but below 60 percent",
+			income:       300000,
+			needs:        165000, // 55%
+			expectedPath: PathwayE3,
+			expectedWarn: WarningNeedsBelow60,
+		},
+		{
+			name:         "Needs equal 60 percent",
+			income:       300000,
+			needs:        180000, // 60%
+			expectedPath: PathwayE4,
+			expectedWarn: WarningNeedsEqual60,
+		},
+		{
+			name:         "Needs above 60 percent",
+			income:       300000,
+			needs:        210000, // 70%
+			expectedPath: PathwayE5,
+			expectedWarn: WarningNeedsAbove60,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			cf := CurrentFinances{
+				Income: tt.income,
+				Needs:  tt.needs,
+			}
+
+			result := AssessNeedsPosition(cf)
+
+			if result.Pathway != tt.expectedPath {
+				t.Errorf(
+					"expected pathway %s, got %s",
+					tt.expectedPath,
+					result.Pathway,
+				)
+			}
+
+			// Verify that the warning definition exists.
+			warning, ok := WarningDefinitions[tt.expectedWarn]
+			if !ok {
+				t.Fatalf(
+					"warning definition %s not found",
+					tt.expectedWarn,
+				)
+			}
+
+			if warning.Description == "" {
+				t.Errorf(
+					"warning %s has an empty description",
+					tt.expectedWarn,
+				)
+			}
+		})
+	}
+}

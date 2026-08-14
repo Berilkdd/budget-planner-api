@@ -21,6 +21,12 @@ const (
 	WarningSavingsMayBeUsed                WarningCode = "SAVINGS_MAY_BE_USED"
 	WarningUnsettledDebt                   WarningCode = "UNSETTLED_DEBT"
 	WarningNoUnsettledDebt                 WarningCode = "NO_UNSETTLED_DEBT"	
+
+	WarningNeedsBelow50 WarningCode = "NEEDS_BELOW_50"
+	WarningNeedsEqual50 WarningCode = "NEEDS_EQUAL_50"
+	WarningNeedsBelow60 WarningCode = "NEEDS_BELOW_60"
+	WarningNeedsEqual60 WarningCode = "NEEDS_EQUAL_60"
+	WarningNeedsAbove60 WarningCode = "NEEDS_ABOVE_60"
 )
 
 // Action codes
@@ -102,4 +108,29 @@ var WarningDefinitions = map[WarningCode]Warning{
 		Code: WarningNoUnsettledDebt,
 		Description: "No outstanding debt remains.",
 	},	
+
+	WarningNeedsBelow50: {
+	Code:        WarningNeedsBelow50,
+	Description: "Needs below 50% of income.Healthy.",
+	},
+
+	WarningNeedsEqual50: {
+		Code:        WarningNeedsEqual50,
+		Description: "Needs equal 50% of income.Healthy.",
+	},
+
+	WarningNeedsBelow60: {
+		Code:        WarningNeedsBelow60,
+		Description: "Needs above 50% but below 60% of income. Reasonable.",
+	},
+
+	WarningNeedsEqual60: {
+		Code:        WarningNeedsEqual60,
+		Description: "Needs equal 60% of income. Reasonable.",
+	},
+
+	WarningNeedsAbove60: {
+		Code:        WarningNeedsAbove60,
+		Description: "Needs above 60% of income. Tight",
+	},
 }

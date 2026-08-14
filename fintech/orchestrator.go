@@ -1,8 +1,7 @@
 package fintech
 
 import (	
-	"fmt"
-)
+	"fmt")
 
 type PathwayCode string
 
@@ -18,6 +17,12 @@ const (
 	PathwayB  PathwayCode = "B"  //Emergency fund covered + no debt
 	PathwayC  PathwayCode = "C"  //Emergency fund below target + debt
 	PathwayD  PathwayCode = "D"  //Emergency fund below target + no debt
+
+	PathwayE1 PathwayCode = "E1" // Needs below 50% of income
+	PathwayE2 PathwayCode = "E2" // Needs equal 50% of income
+	PathwayE3 PathwayCode = "E3" // Needs above 50% but below 60%
+	PathwayE4 PathwayCode = "E4" // Needs equal 60% of income
+	PathwayE5 PathwayCode = "E5" // Needs above 60% of income
 )
 
 type AssessmentData struct {
@@ -222,8 +227,83 @@ func AssessDeficitPosition(cf *CurrentFinances) AssessmentData {
 
 	
 	return assessment
+}	
+
+func AssessNeedsPosition(cf CurrentFinances) AssessmentData {
+
+	assessment := AssessmentData{
+		EmploymentStatus:              cf.EmploymentStatus,
+		NeedsEqualIncome:              cf.Needs == cf.Income,
+		CurrentSavings:                cf.CurrentSavings,
+		MonthsOfNeedsCoveredBySavings: cf.CurrentSavings / cf.Needs,
+		Actions:                       []ActionCode{},
+	}
+
+	needsPercentage := (cf.Needs * 100) / cf.Income
+
+	if needsPercentage < 50 {
+
+		fmt.Println("WARNING")
+		fmt.Println(WarningDefinitions[WarningNeedsBelow50].Description)
+
+		assessment.Pathway = PathwayE1
+
+		fmt.Println("PATHWAY")
+		fmt.Println(PathwayE1)
+
+		return assessment
+	}
+
+	if needsPercentage == 50 {
+
+		fmt.Println("WARNING")
+		fmt.Println(WarningDefinitions[WarningNeedsEqual50].Description)
+
+		assessment.Pathway = PathwayE2
+
+		fmt.Println("PATHWAY")
+		fmt.Println(PathwayE2)
+
+		return assessment
+	}
+
+	if needsPercentage < 60 {
+
+		fmt.Println("WARNING")
+		fmt.Println(WarningDefinitions[WarningNeedsBelow60].Description)
+
+		assessment.Pathway = PathwayE3
+
+		fmt.Println("PATHWAY")
+		fmt.Println(PathwayE3)
+
+		return assessment
+	}
+
+	if needsPercentage == 60 {
+
+		fmt.Println("WARNING")
+		fmt.Println(WarningDefinitions[WarningNeedsEqual60].Description)
+
+		assessment.Pathway = PathwayE4
+
+		fmt.Println("PATHWAY")
+		fmt.Println(PathwayE4)
+
+		return assessment
+	}
+
+	fmt.Println("WARNING")
+	fmt.Println(WarningDefinitions[WarningNeedsAbove60].Description)
+
+	assessment.Pathway = PathwayE5
+
+	fmt.Println("PATHWAY")
+	fmt.Println(PathwayE5)
+
+	return assessment
 }
-	
+
 type DebtFreedomStrategies struct {
 	Sustainable DebtFreedomPlan
 	Moderate    DebtFreedomPlan
