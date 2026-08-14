@@ -117,11 +117,11 @@ func TestGenerateAllocation(t *testing.T) {
 				t.Errorf("expected Sustainable Plan, got %s", options.Sustainable.Name)
 			}
 
-			if options.Moderate.Name != "Moderate Debt Acceleration" {
+			if options.Moderate.Name != "Moderate Plan" {
 				t.Errorf("expected Moderate Debt Acceleration, got %s", options.Moderate.Name)
 			}
 
-			if options.Aggressive.Name != "Aggressive Debt Acceleration" {
+			if options.Aggressive.Name != "Aggressive Plan" {
 				t.Errorf("expected Aggressive Debt Acceleration, got %s", options.Aggressive.Name)
 			}
 
@@ -1152,5 +1152,98 @@ func TestAssessDeficitPosition(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGenerateDebtFreedomStrategies(t *testing.T) {
+
+	cf := CurrentFinances{
+		Income:           300000,
+		Needs:            150000,
+		CurrentSavings:   100000,
+		HasDebt:          true,
+		UnsettledDebt:    100,
+		DebtInterestRate: 2400,
+		EmploymentStatus: Employee,
+	}
+
+	allocations := AllocationOptions{
+		Sustainable: BudgetStrategy{
+			Name:      "Sustainable Plan",
+			Available: false,
+			Allocations: Allocation{
+				Needs: 150000,
+				Wants: 90000,
+				Save:  60000,
+			},
+		},
+		Moderate: BudgetStrategy{
+			Name:      "Moderate Plan",
+			Available: true,
+			Allocations: Allocation{
+				Needs: 150000,
+				Wants: 75000,
+				Save:  75000,
+			},
+		},
+		Aggressive: BudgetStrategy{
+			Name:      "Aggressive Plan",
+			Available: true,
+			Allocations: Allocation{
+				Needs: 150000,
+				Wants: 60000,
+				Save: 90000,
+			},
+		},
+	}
+
+	baselineBuffer := BaselineBuffer{
+		TargetAmount: 1000,
+	}
+
+	result, err := GenerateDebtFreedomStrategies(
+		cf,
+		allocations,
+		baselineBuffer,
+		50000,
+	)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Sustainable should be unavailable.
+	if result.Sustainable.Available {
+		t.Error("expected Sustainable plan to be unavailable")
+	}
+
+	// Moderate should be available and have a forecast.
+	if !result.Moderate.Available {
+		t.Error("expected Moderate plan to be available")
+	}
+
+	if result.Moderate.DebtForecast.TotalMonths == 0 {
+		t.Error("expected Moderate plan to have a debt forecast")
+	}
+
+	// Aggressive should be available and have a forecast.
+	if !result.Aggressive.Available {
+		t.Error("expected Aggressive plan to be available")
+	}
+
+	if result.Aggressive.DebtForecast.TotalMonths == 0 {
+		t.Error("expected Aggressive plan to have a debt forecast")
+	}
+
+	// Custom should always be available when the contribution is valid.
+	if !result.Custom.Available {
+		t.Error("expected Custom plan to be available")
+	}
+
+	if result.Custom.Allocation.Save != 50000 {
+		t.Errorf(
+			"expected Custom saving allocation 50000, got %d",
+			result.Custom.Allocation.Save,
+		)
 	}
 }

@@ -14,6 +14,7 @@ type Allocation struct {
 type BudgetStrategy struct {
 	Name        string
 	Allocations Allocation
+	Available   bool
 }
 
 type AllocationOptions struct {
@@ -35,6 +36,10 @@ func GenerateAllocation(cf CurrentFinances) (AllocationOptions, error) {
 	moderateWants := (cf.Income * 25) / 100
 	aggressiveWants := (cf.Income * 20) / 100
 
+	sustainableSave := cf.Income - cf.Needs - sustainableWants
+	moderateSave := cf.Income - cf.Needs - moderateWants
+	aggressiveSave := cf.Income - cf.Needs - aggressiveWants
+
 	return AllocationOptions{
 		Sustainable: BudgetStrategy{
 			Name: "Sustainable Plan",
@@ -43,22 +48,25 @@ func GenerateAllocation(cf CurrentFinances) (AllocationOptions, error) {
 				Wants: sustainableWants,
 				Save:  cf.Income - cf.Needs - sustainableWants,
 			},
+			Available: sustainableSave > 0,
 		},
 		Moderate: BudgetStrategy{
-			Name: "Moderate Debt Acceleration",
+			Name: "Moderate Plan",
 			Allocations: Allocation{
 				Needs: cf.Needs,
 				Wants: moderateWants,
 				Save:  cf.Income - cf.Needs - moderateWants,
 			},
+			Available: moderateSave > 0,
 		},
 		Aggressive: BudgetStrategy{
-			Name: "Aggressive Debt Acceleration",
+			Name: "Aggressive Plan",
 			Allocations: Allocation{
 				Needs: cf.Needs,
 				Wants: aggressiveWants,
 				Save:  cf.Income - cf.Needs - aggressiveWants,
 			},
+			Available: aggressiveSave > 0,
 		},
 	}, nil
 }
