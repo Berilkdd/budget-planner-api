@@ -1,5 +1,7 @@
 package fintech
 
+import "time"
+
 type EmploymentStatus string
 
 const (
@@ -8,17 +10,19 @@ const (
 )
 
 type CurrentFinances struct {
-	Income           int64
-	Needs            int64
-	CurrentSavings   int64
-	HasDebt          bool
-	UnsettledDebt    int64
-	DebtInterestRate int64
+	Income             int64
+	Needs              int64
+	CurrentSavings     int64
+	HasDebt            bool
+	UnsettledDebt      int64
+	DebtInterestRate   int64
 	CustomContribution int64
-	EmploymentStatus EmploymentStatus
+	EmploymentStatus   EmploymentStatus
+	CurrentDate        time.Time
+	AvailableSurplus   int64
 }
 
 type UserDecisions struct {
-	DebtFreedomStrategy string
+	DebtFreedomStrategy   string
 	EmergencyFundStrategy string
 }
