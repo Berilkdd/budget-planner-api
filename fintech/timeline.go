@@ -362,6 +362,7 @@ func CalculateEmergencyFundTimeline(
 type DebtFreedomPlan struct {
 	Available      bool
 	Allocation     Allocation
+	BaselineBuffer BaselineBuffer
 	BufferForecast BufferForecast
 	DebtForecast   DebtForecast
 	DMPRequired    bool
@@ -402,6 +403,7 @@ func calculateDebtFreedomPlan(
 	plan := DebtFreedomPlan{
 		Available:      true,
 		Allocation:     strategy.Allocations,
+		BaselineBuffer: baselineBuffer,
 		BufferForecast: bufferForecast,
 		DebtForecast:   debtForecast,
 	}
@@ -415,9 +417,10 @@ func calculateDebtFreedomPlan(
 
 // calculateEmergencyFundPlan generates the Phase 3 forecast for one strategy.
 type EmergencyFundPlan struct {
-	Available  bool
-	Allocation Allocation
-	Forecast   EmergencyFundForecast
+	Available    bool
+	Allocation   Allocation
+	TargetAmount int64
+	Forecast     EmergencyFundForecast
 }
 
 func calculateEmergencyFundPlan(
