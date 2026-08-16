@@ -433,9 +433,7 @@ type EmergencyFundPlan struct {
 func calculateEmergencyFundPlan(
 	cf CurrentFinances,
 	strategy BudgetStrategy,
-	selectedPlan DebtFreedomPlan,
 	targetAmount int64,
-	baselineBuffer int64,
 ) (EmergencyFundPlan, error) {
 
 	if !strategy.Available {
@@ -444,22 +442,7 @@ func calculateEmergencyFundPlan(
 		}, nil
 	}
 
-	var startingSavings int64
-
-	// If Phase 2 happened, the protected buffer has grown during debt repayment.
-	// Otherwise, Phase 3 starts from the user's current savings.
-	if selectedPlan.DebtForecast.Phase2Months > 0 {
-		bufferGrowth := CalculateBufferGrowthDuringDebt(
-			baselineBuffer,
-			selectedPlan.DebtForecast.Phase2Months,
-		)
-
-		startingSavings = bufferGrowth.FinalBuffer +
-			selectedPlan.DebtForecast.Phase2Surplus
-	} else {
-		startingSavings = cf.CurrentSavings +
-			selectedPlan.DebtForecast.Phase2Surplus
-	}
+	startingSavings := cf.CurrentSavings
 
 	forecast, err := CalculateEmergencyFundTimeline(
 		startingSavings,
@@ -505,9 +488,7 @@ func GenerateCustomDebtFreedomPlan(
 // from the user's chosen monthly contribution.
 func GenerateCustomEmergencyFundPlan(
 	cf CurrentFinances,
-	selectedPlan DebtFreedomPlan,
 	targetAmount int64,
-	baselineBuffer int64,
 	customContribution int64,
 ) (EmergencyFundPlan, error) {
 
@@ -522,9 +503,7 @@ func GenerateCustomEmergencyFundPlan(
 	return calculateEmergencyFundPlan(
 		cf,
 		customStrategy,
-		selectedPlan,
 		targetAmount,
-		baselineBuffer,
 	)
 }
 
@@ -593,47 +572,61 @@ type EmergencyFundStrategies struct {
 func GenerateEmergencyFundStrategies(
 	cf CurrentFinances,
 	allocations AllocationOptions,
-	selectedPlan DebtFreedomPlan,
 	targetAmount int64,
-	baselineBuffer int64,
 ) (EmergencyFundStrategies, error) {
 
-	sustainable, err := calculateEmergencyFundPlan(
-		cf,
-		allocations.Sustainable,
-		selectedPlan,
-		targetAmount,
-		baselineBuffer,
-	)
-	if err != nil {
-		return EmergencyFundStrategies{}, err
+	var sustainable EmergencyFundPlan
+
+	if allocations.Sustainable.Available {
+		var err error
+
+		sustainable, err = calculateEmergencyFundPlan(
+			cf,
+			allocations.Sustainable,
+			targetAmount,
+		)
+		if err != nil {
+			return EmergencyFundStrategies{}, err
+		}
 	}
 
-	moderate, err := calculateEmergencyFundPlan(
-		cf,
-		allocations.Moderate,
-		selectedPlan,
-		targetAmount,
-		baselineBuffer,
-	)
-	if err != nil {
-		return EmergencyFundStrategies{}, err
+	var moderate EmergencyFundPlan
+
+	if allocations.Moderate.Available {
+		var err error
+
+		moderate, err = calculateEmergencyFundPlan(
+			cf,
+			allocations.Moderate,
+			targetAmount,
+		)
+		if err != nil {
+			return EmergencyFundStrategies{}, err
+		}
 	}
 
-	aggressive, err := calculateEmergencyFundPlan(
-		cf,
-		allocations.Aggressive,
-		selectedPlan,
-		targetAmount,
-		baselineBuffer,
-	)
-	if err != nil {
-		return EmergencyFundStrategies{}, err
+	var aggressive EmergencyFundPlan
+
+	if allocations.Aggressive.Available {
+		var err error
+
+		aggressive, err = calculateEmergencyFundPlan(
+			cf,
+			allocations.Aggressive,
+			targetAmount,
+		)
+		if err != nil {
+			return EmergencyFundStrategies{}, err
+		}
 	}
 
-	return EmergencyFundStrategies{
+	strategies := EmergencyFundStrategies{
 		Sustainable: sustainable,
 		Moderate:    moderate,
 		Aggressive:  aggressive,
-	}, nil
+	}
+
+	PrintEmergencyFundStrategies(cf, strategies)
+
+	return strategies, nil
 }

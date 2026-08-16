@@ -1432,14 +1432,26 @@ func TestGenerateDebtFreedomStrategies(t *testing.T) {
 
 func TestGenerateEmergencyFundStrategies(t *testing.T) {
 
+	startDate := time.Date(
+		2026,
+		time.August,
+		1,
+		0,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
+
 	cf := CurrentFinances{
 		Income:           300000,
 		Needs:            150000,
-		CurrentSavings:   100000,
+		CurrentSavings:   100000, // £1,000
 		HasDebt:          true,
 		UnsettledDebt:    100,
 		DebtInterestRate: 2400,
 		EmploymentStatus: Employee,
+		CurrentDate:      startDate,
 	}
 
 	allocations := AllocationOptions{
@@ -1452,45 +1464,34 @@ func TestGenerateEmergencyFundStrategies(t *testing.T) {
 				Save:  60000,
 			},
 		},
+
 		Moderate: BudgetStrategy{
 			Name:      "Moderate Plan",
 			Available: true,
 			Allocations: Allocation{
 				Needs: 150000,
-				Wants: 75000,
-				Save:  75000,
+				Wants: 75000, // £750
+				Save:  75000, // £750
 			},
 		},
+
 		Aggressive: BudgetStrategy{
 			Name:      "Aggressive Plan",
 			Available: true,
 			Allocations: Allocation{
 				Needs: 150000,
-				Wants: 60000,
-				Save:  90000,
+				Wants: 60000, // £600
+				Save:  90000, // £900
 			},
 		},
 	}
 
-	// This represents the debt strategy selected by the user.
-	selectedPlan := DebtFreedomPlan{
-		Available:  true,
-		Allocation: allocations.Moderate.Allocations,
-		DebtForecast: DebtForecast{
-			Phase2Months:  2,
-			Phase2Surplus: 100,
-		},
-	}
-
-	targetAmount := int64(3000)
-	baselineBuffer := int64(1000)
+	targetAmount := int64(300000) // £3,000
 
 	result, err := GenerateEmergencyFundStrategies(
 		cf,
 		allocations,
-		selectedPlan,
 		targetAmount,
-		baselineBuffer,
 	)
 
 	if err != nil {
@@ -1512,20 +1513,64 @@ func TestGenerateEmergencyFundStrategies(t *testing.T) {
 		t.Error("expected Aggressive plan to be available")
 	}
 
-	// The available plans should retain their allocations.
-	if result.Moderate.Allocation.Save != allocations.Moderate.Allocations.Save {
+	// Both available plans should use the correct target.
+	if result.Moderate.TargetAmount != targetAmount {
 		t.Errorf(
-			"expected Moderate saving allocation %d, got %d",
-			allocations.Moderate.Allocations.Save,
+			"expected Moderate target to be %d, got %d",
+			targetAmount,
+			result.Moderate.TargetAmount,
+		)
+	}
+
+	if result.Aggressive.TargetAmount != targetAmount {
+		t.Errorf(
+			"expected Aggressive target to be %d, got %d",
+			targetAmount,
+			result.Aggressive.TargetAmount,
+		)
+	}
+
+	// Both plans start with the user's current savings.
+	if result.Moderate.Forecast.Phase3Months != 3 {
+		t.Errorf(
+			"expected Moderate forecast to take 3 months, got %d",
+			result.Moderate.Forecast.Phase3Months,
+		)
+	}
+
+	if result.Aggressive.Forecast.Phase3Months != 3 {
+		t.Errorf(
+			"expected Aggressive forecast to take 3 months, got %d",
+			result.Aggressive.Forecast.Phase3Months,
+		)
+	}
+
+	// The available plans should retain their allocations.
+	if result.Moderate.Allocation.Save != 75000 {
+		t.Errorf(
+			"expected Moderate saving allocation to be 75000, got %d",
 			result.Moderate.Allocation.Save,
 		)
 	}
 
-	if result.Aggressive.Allocation.Save != allocations.Aggressive.Allocations.Save {
+	if result.Aggressive.Allocation.Save != 90000 {
 		t.Errorf(
-			"expected Aggressive saving allocation %d, got %d",
-			allocations.Aggressive.Allocations.Save,
+			"expected Aggressive saving allocation to be 90000, got %d",
 			result.Aggressive.Allocation.Save,
+		)
+	}
+
+	if result.Moderate.Allocation.Wants != 75000 {
+		t.Errorf(
+			"expected Moderate wants allocation to be 75000, got %d",
+			result.Moderate.Allocation.Wants,
+		)
+	}
+
+	if result.Aggressive.Allocation.Wants != 60000 {
+		t.Errorf(
+			"expected Aggressive wants allocation to be 60000, got %d",
+			result.Aggressive.Allocation.Wants,
 		)
 	}
 }

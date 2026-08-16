@@ -686,3 +686,222 @@ func boolText(value bool) string {
 
 	return "No"
 }
+
+func PrintEmergencyFundStrategies(
+	cf CurrentFinances,
+	strategies EmergencyFundStrategies,
+) {
+	printValue := func(value string, available bool) string {
+		if !available {
+			return "Not Available"
+		}
+
+		return value
+	}
+
+	printMoney := func(
+		label string,
+		sustainable int64,
+		moderate int64,
+		aggressive int64,
+	) {
+		fmt.Printf(
+			"  | %-30s | %s | %s | %s |\n",
+			label,
+			formatColumnValue(
+				printValue(
+					formatMoney(sustainable),
+					strategies.Sustainable.Available,
+				),
+				!strategies.Sustainable.Available,
+			),
+			formatColumnValue(
+				printValue(
+					formatMoney(moderate),
+					strategies.Moderate.Available,
+				),
+				!strategies.Moderate.Available,
+			),
+			formatColumnValue(
+				printValue(
+					formatMoney(aggressive),
+					strategies.Aggressive.Available,
+				),
+				!strategies.Aggressive.Available,
+			),
+		)
+	}
+
+	printInt := func(
+		label string,
+		sustainable int64,
+		moderate int64,
+		aggressive int64,
+	) {
+		fmt.Printf(
+			"  | %-30s | %s | %s | %s |\n",
+			label,
+			formatColumnValue(
+				printValue(
+					fmt.Sprintf("%d", sustainable),
+					strategies.Sustainable.Available,
+				),
+				!strategies.Sustainable.Available,
+			),
+			formatColumnValue(
+				printValue(
+					fmt.Sprintf("%d", moderate),
+					strategies.Moderate.Available,
+				),
+				!strategies.Moderate.Available,
+			),
+			formatColumnValue(
+				printValue(
+					fmt.Sprintf("%d", aggressive),
+					strategies.Aggressive.Available,
+				),
+				!strategies.Aggressive.Available,
+			),
+		)
+	}
+
+	printDate := func(
+		label string,
+		sustainableMonths int64,
+		moderateMonths int64,
+		aggressiveMonths int64,
+	) {
+		fmt.Printf(
+			"  | %-30s | %s | %s | %s |\n",
+			label,
+			formatColumnValue(
+				printValue(
+					formatDate(cf.CurrentDate, sustainableMonths),
+					strategies.Sustainable.Available,
+				),
+				!strategies.Sustainable.Available,
+			),
+			formatColumnValue(
+				printValue(
+					formatDate(cf.CurrentDate, moderateMonths),
+					strategies.Moderate.Available,
+				),
+				!strategies.Moderate.Available,
+			),
+			formatColumnValue(
+				printValue(
+					formatDate(cf.CurrentDate, aggressiveMonths),
+					strategies.Aggressive.Available,
+				),
+				!strategies.Aggressive.Available,
+			),
+		)
+	}
+
+	printHeader := func() {
+		fmt.Printf(
+			"  | %-30s | %s | %s | %s |\n",
+			"",
+			formatColumnValue(
+				"Sustainable",
+				!strategies.Sustainable.Available,
+			),
+			formatColumnValue(
+				"Moderate",
+				!strategies.Moderate.Available,
+			),
+			formatColumnValue(
+				"Aggressive",
+				!strategies.Aggressive.Available,
+			),
+		)
+	}
+
+	fmt.Println()
+	fmt.Println("  =================================================================================")
+	fmt.Println("                           EMERGENCY FUND FORECAST")
+	fmt.Println("  =================================================================================")
+	fmt.Println()
+
+	printHeader()
+
+	fmt.Println("  ---------------------------------------------------------------------------------")
+	fmt.Println("    PHASE 3 — EMERGENCY FUND")
+	fmt.Println("  ---------------------------------------------------------------------------------")
+
+	printMoney(
+		"Starting Savings",
+		cf.CurrentSavings,
+		cf.CurrentSavings,
+		cf.CurrentSavings,
+	)
+
+	printMoney(
+		"Target Amount",
+		strategies.Sustainable.TargetAmount,
+		strategies.Moderate.TargetAmount,
+		strategies.Aggressive.TargetAmount,
+	)
+
+	printInt(
+		"Total Months",
+		strategies.Sustainable.Forecast.Phase3Months,
+		strategies.Moderate.Forecast.Phase3Months,
+		strategies.Aggressive.Forecast.Phase3Months,
+	)
+
+	printDate(
+		"EF Target Hit Date",
+		strategies.Sustainable.Forecast.Phase3Months,
+		strategies.Moderate.Forecast.Phase3Months,
+		strategies.Aggressive.Forecast.Phase3Months,
+	)
+
+	printMoney(
+		"Total Contributions",
+		strategies.Sustainable.Forecast.Phase3Months*
+			strategies.Sustainable.Allocation.Save,
+		strategies.Moderate.Forecast.Phase3Months*
+			strategies.Moderate.Allocation.Save,
+		strategies.Aggressive.Forecast.Phase3Months*
+			strategies.Aggressive.Allocation.Save,
+	)
+
+	printMoney(
+		"Available Surplus",
+		strategies.Sustainable.Forecast.Phase3Surplus,
+		strategies.Moderate.Forecast.Phase3Surplus,
+		strategies.Aggressive.Forecast.Phase3Surplus,
+	)
+
+	printMoney(
+		"Total Interest Gain",
+		strategies.Sustainable.Forecast.Phase3InterestGain,
+		strategies.Moderate.Forecast.Phase3InterestGain,
+		strategies.Aggressive.Forecast.Phase3InterestGain,
+	)
+
+	printMoney(
+		"Total Fees",
+		strategies.Sustainable.Forecast.Phase3Fees,
+		strategies.Moderate.Forecast.Phase3Fees,
+		strategies.Aggressive.Forecast.Phase3Fees,
+	)
+
+	printMoney(
+		"Monthly Contribution",
+		strategies.Sustainable.Allocation.Save,
+		strategies.Moderate.Allocation.Save,
+		strategies.Aggressive.Allocation.Save,
+	)
+
+	printMoney(
+		"Monthly Wants",
+		strategies.Sustainable.Allocation.Wants,
+		strategies.Moderate.Allocation.Wants,
+		strategies.Aggressive.Allocation.Wants,
+	)
+
+	fmt.Println("  ---------------------------------------------------------------------------------")
+	fmt.Println()
+}
