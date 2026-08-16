@@ -365,6 +365,7 @@ type DebtFreedomPlan struct {
 	BaselineBuffer BaselineBuffer
 	BufferForecast BufferForecast
 	DebtForecast   DebtForecast
+	BufferGrowth   BufferGrowthForecast
 	DMPRequired    bool
 }
 
@@ -400,12 +401,18 @@ func calculateDebtFreedomPlan(
 		return DebtFreedomPlan{}, err
 	}
 
+	bufferGrowth := CalculateBufferGrowthDuringDebt(
+		baselineBuffer.TargetAmount,
+		debtForecast.Phase2Months,
+	)
+
 	plan := DebtFreedomPlan{
 		Available:      true,
 		Allocation:     strategy.Allocations,
 		BaselineBuffer: baselineBuffer,
 		BufferForecast: bufferForecast,
 		DebtForecast:   debtForecast,
+		BufferGrowth:   bufferGrowth,
 	}
 
 	dmpAssessment := AssessDMPNeed(cf, plan)
@@ -464,9 +471,10 @@ func calculateEmergencyFundPlan(
 	}
 
 	return EmergencyFundPlan{
-		Available:  true,
-		Allocation: strategy.Allocations,
-		Forecast:   forecast,
+		Available:    true,
+		Allocation:   strategy.Allocations,
+		TargetAmount: targetAmount,
+		Forecast:     forecast,
 	}, nil
 }
 
@@ -562,11 +570,15 @@ func GenerateDebtFreedomStrategies(
 		return DebtFreedomStrategies{}, err
 	}
 
-	return DebtFreedomStrategies{
+	strategies := DebtFreedomStrategies{
 		Sustainable: sustainable,
 		Moderate:    moderate,
 		Aggressive:  aggressive,
-	}, nil
+	}
+
+	PrintDebtFreedomStrategies(cf, strategies)
+
+	return strategies, nil
 }
 
 // GenerateEmergencyFundStrategies generates the default emergency-fund

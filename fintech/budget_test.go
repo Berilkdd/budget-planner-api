@@ -1334,6 +1334,7 @@ func TestCalculateDebtTimeline(t *testing.T) {
 
 func TestGenerateDebtFreedomStrategies(t *testing.T) {
 	input := CurrentFinances{
+		Income:           240000,
 		CurrentSavings:   50000,
 		Needs:            100000,
 		UnsettledDebt:    200000,
@@ -1345,7 +1346,7 @@ func TestGenerateDebtFreedomStrategies(t *testing.T) {
 		Sustainable: BudgetStrategy{
 			Available: true,
 			Allocations: Allocation{
-				Save: 25000,
+				Save: 5000,
 			},
 		},
 		Moderate: BudgetStrategy{
@@ -1414,7 +1415,21 @@ func TestGenerateDebtFreedomStrategies(t *testing.T) {
 	if !reflect.DeepEqual(result.Aggressive, expectedAggressive) {
 		t.Error("Aggressive strategy does not match calculated plan")
 	}
+
+	// DMP assessment
+	if !result.Sustainable.DMPRequired {
+		t.Error("expected Sustainable plan to require DMP")
+	}
+
+	if result.Moderate.DMPRequired {
+		t.Error("expected Moderate plan not to require DMP")
+	}
+
+	if result.Aggressive.DMPRequired {
+		t.Error("expected Aggressive plan not to require DMP")
+	}
 }
+
 func TestGenerateEmergencyFundStrategies(t *testing.T) {
 
 	cf := CurrentFinances{

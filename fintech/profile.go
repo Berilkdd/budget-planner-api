@@ -2,6 +2,8 @@ package fintech
 
 import "time"
 
+CurrentDate: time.Now(),
+
 type EmploymentStatus string
 
 const (
@@ -18,7 +20,7 @@ type CurrentFinances struct {
 	DebtInterestRate   int64
 	CustomContribution int64
 	EmploymentStatus   EmploymentStatus
-	CurrentDate        time.Time
+	CurrentDate        time.Now()
 	AvailableSurplus   int64
 }
 
