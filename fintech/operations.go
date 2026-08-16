@@ -54,6 +54,9 @@ func (cf *CurrentFinances) ApplyImmediateDebtPayoff(baselineBuffer BaselineBuffe
 		float64(cf.UnsettledDebt)/100,
 		float64(cf.CurrentSavings)/100,
 	)
+
+	PrintCurrentFinances(*cf)
+
 	return nil
 }
 
@@ -81,6 +84,8 @@ func ApplyDebtFreedomPlan(
 		0,
 	)
 
+	PrintCurrentFinances(*cf)
+
 	return nil
 }
 
@@ -101,6 +106,8 @@ func ApplyEmergencyFundPlan(
 		int(plan.Forecast.Phase3Months),
 		0,
 	)
+
+	PrintCurrentFinances(*cf)
 
 	return nil
 }

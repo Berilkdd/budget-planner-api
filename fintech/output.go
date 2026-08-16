@@ -2,6 +2,19 @@ package fintech
 
 import "fmt"
 
+func PrintCurrentFinances(cf CurrentFinances) {
+	fmt.Println("=== Current Financial Position ===")
+	fmt.Printf("Income: £%.2f\n", float64(cf.Income)/100)
+	fmt.Printf("Needs: £%.2f\n", float64(cf.Needs)/100)
+	fmt.Printf("Current savings: £%.2f\n", float64(cf.CurrentSavings)/100)
+	fmt.Printf("Available surplus: £%.2f\n", float64(cf.AvailableSurplus)/100)
+	fmt.Printf("Unsettled debt: £%.2f\n", float64(cf.UnsettledDebt)/100)
+	fmt.Printf("Has debt: %t\n", cf.HasDebt)
+	fmt.Printf("Employment status: %s\n", cf.EmploymentStatus)
+	fmt.Printf("Current date: %s\n", cf.CurrentDate.Format("January 2006"))
+	fmt.Println("=================================")
+}
+
 // PrintDMPAssessment prints the result of the DMP safety assessment.
 func PrintDMPAssessment(assessment DMPAssessment) {
 	if !assessment.DMPRequired {
