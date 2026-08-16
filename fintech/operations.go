@@ -73,8 +73,11 @@ func ApplyDebtFreedomPlan(
 		plan.BufferForecast.Phase1Months +
 			plan.DebtForecast.Phase2Months
 
-	cf.CurrentSavings = plan.BaselineBuffer.TargetAmount
-	cf.AvailableSurplus = plan.DebtForecast.Phase2Surplus
+	cf.CurrentSavings =
+		plan.BaselineBuffer.TargetAmount +
+			plan.DebtForecast.Phase2Surplus
+
+	cf.AvailableSurplus = 0
 	cf.UnsettledDebt = 0
 	cf.HasDebt = false
 

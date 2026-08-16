@@ -790,12 +790,12 @@ func TestApplyDebtFreedomPlan(t *testing.T) {
 		t.Error("expected HasDebt to be false")
 	}
 
-	if cf.CurrentSavings != 100000 {
-		t.Errorf("expected current savings to be 100000, got %d", cf.CurrentSavings)
+	if cf.CurrentSavings != 125000 {
+		t.Errorf("expected current savings to be 125000, got %d", cf.CurrentSavings)
 	}
 
-	if cf.AvailableSurplus != 25000 {
-		t.Errorf("expected available surplus to be 25000, got %d", cf.AvailableSurplus)
+	if cf.AvailableSurplus != 0 {
+		t.Errorf("expected available surplus to be 0, got %d", cf.AvailableSurplus)
 	}
 
 	expectedDate := time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)
