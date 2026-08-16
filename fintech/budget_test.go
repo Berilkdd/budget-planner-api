@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
 
 //assesment.go tests
@@ -745,6 +746,142 @@ func TestApplyImmediateDebtPayoff(t *testing.T) {
 				t.Errorf("expected mutated debt %d, got %d", tt.expectedDebt, cf.UnsettledDebt)
 			}
 		})
+	}
+}
+
+func TestApplyDebtFreedomPlan(t *testing.T) {
+	startDate := time.Date(2026, time.August, 1, 0, 0, 0, 0, time.UTC)
+
+	cf := CurrentFinances{
+		Income:           240000,
+		Needs:            100000,
+		CurrentSavings:   100000,
+		HasDebt:          true,
+		UnsettledDebt:    500000,
+		DebtInterestRate: 2400,
+		CurrentDate:      startDate,
+	}
+
+	plan := DebtFreedomPlan{
+		Available: true,
+		BaselineBuffer: BaselineBuffer{
+			TargetAmount: 100000,
+		},
+		BufferForecast: BufferForecast{
+			Phase1Months: 1,
+		},
+		DebtForecast: DebtForecast{
+			Phase2Months:  1,
+			Phase2Surplus: 25000,
+		},
+	}
+
+	err := ApplyDebtFreedomPlan(&cf, plan)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cf.UnsettledDebt != 0 {
+		t.Errorf("expected debt to be 0, got %d", cf.UnsettledDebt)
+	}
+
+	if cf.HasDebt {
+		t.Error("expected HasDebt to be false")
+	}
+
+	if cf.CurrentSavings != 100000 {
+		t.Errorf("expected current savings to be 100000, got %d", cf.CurrentSavings)
+	}
+
+	if cf.AvailableSurplus != 25000 {
+		t.Errorf("expected available surplus to be 25000, got %d", cf.AvailableSurplus)
+	}
+
+	expectedDate := time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)
+
+	if !cf.CurrentDate.Equal(expectedDate) {
+		t.Errorf(
+			"expected date to be %v, got %v",
+			expectedDate,
+			cf.CurrentDate,
+		)
+	}
+}
+
+func TestApplyEmergencyFundPlan(t *testing.T) {
+	startDate := time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)
+
+	cf := CurrentFinances{
+		Income:           240000,
+		Needs:            100000,
+		CurrentSavings:   100000,
+		AvailableSurplus: 25000,
+		HasDebt:          false,
+		UnsettledDebt:    0,
+		DebtInterestRate: 2400,
+		CurrentDate:      startDate,
+	}
+
+	plan := EmergencyFundPlan{
+		Available:    true,
+		TargetAmount: 600000,
+		Forecast: EmergencyFundForecast{
+			Phase3Months:       3,
+			Phase3Surplus:      15000,
+			Phase3InterestGain: 5000,
+			Phase3Fees:         1000,
+		},
+	}
+
+	err := ApplyEmergencyFundPlan(&cf, plan)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cf.CurrentSavings != 600000 {
+		t.Errorf(
+			"expected current savings to be 600000, got %d",
+			cf.CurrentSavings,
+		)
+	}
+
+	if cf.AvailableSurplus != 15000 {
+		t.Errorf(
+			"expected available surplus to be 15000, got %d",
+			cf.AvailableSurplus,
+		)
+	}
+
+	expectedDate := time.Date(
+		2027,
+		time.January,
+		1,
+		0,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
+
+	if !cf.CurrentDate.Equal(expectedDate) {
+		t.Errorf(
+			"expected date to be %v, got %v",
+			expectedDate,
+			cf.CurrentDate,
+		)
+	}
+
+	if cf.UnsettledDebt != 0 {
+		t.Errorf(
+			"expected debt to remain 0, got %d",
+			cf.UnsettledDebt,
+		)
+	}
+
+	if cf.HasDebt {
+		t.Error("expected HasDebt to remain false")
 	}
 }
 

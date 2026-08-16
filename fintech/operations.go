@@ -56,3 +56,51 @@ func (cf *CurrentFinances) ApplyImmediateDebtPayoff(baselineBuffer BaselineBuffe
 	)
 	return nil
 }
+
+func ApplyDebtFreedomPlan(
+	cf *CurrentFinances,
+	plan DebtFreedomPlan,
+) error {
+
+	if !plan.Available {
+		return errors.New("debt freedom plan is unavailable")
+	}
+
+	totalMonths :=
+		plan.BufferForecast.Phase1Months +
+			plan.DebtForecast.Phase2Months
+
+	cf.CurrentSavings = plan.BaselineBuffer.TargetAmount
+	cf.AvailableSurplus = plan.DebtForecast.Phase2Surplus
+	cf.UnsettledDebt = 0
+	cf.HasDebt = false
+
+	cf.CurrentDate = cf.CurrentDate.AddDate(
+		0,
+		int(totalMonths),
+		0,
+	)
+
+	return nil
+}
+
+func ApplyEmergencyFundPlan(
+	cf *CurrentFinances,
+	plan EmergencyFundPlan,
+) error {
+
+	if !plan.Available {
+		return errors.New("emergency fund plan is unavailable")
+	}
+
+	cf.CurrentSavings = plan.TargetAmount
+	cf.AvailableSurplus = plan.Forecast.Phase3Surplus
+
+	cf.CurrentDate = cf.CurrentDate.AddDate(
+		0,
+		int(plan.Forecast.Phase3Months),
+		0,
+	)
+
+	return nil
+}
