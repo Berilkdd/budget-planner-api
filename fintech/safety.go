@@ -1,9 +1,6 @@
 package fintech
 
-import (
-	"errors"
-	"fmt"
-)
+import "fmt"
 
 // BaselineBuffer is one month of needs baseline safety net while user paying the debt off.
 type BaselineBuffer struct {
@@ -16,8 +13,6 @@ func CalculateBaselineBuffer(cf CurrentFinances) (BaselineBuffer, error) {
 		return BaselineBuffer{}, ErrZeroNeeds
 	}
 
-	fmt.Printf("[CALCULATED] Baseline buffer: £%.2f\n", float64(cf.Needs)/100)
-
 	return BaselineBuffer{
 		TargetAmount: cf.Needs,
 	}, nil
@@ -29,23 +24,44 @@ type EmergencyFund struct {
 	MonthsCount  int64
 }
 
-func CalculateEmergencyTarget(status EmploymentStatus, monthlyNeeds int64) (EmergencyFund, error) {
+func CalculateEmergencyTarget(
+	status EmploymentStatus,
+	monthlyNeeds int64,
+) (EmergencyFund, error) {
+
 	if monthlyNeeds <= 0 {
-		return EmergencyFund{}, errors.New("monthly needs must be greater than zero")
+		return EmergencyFund{}, ErrZeroNeeds
 	}
+
+	fmt.Println()
+	fmt.Println(
+		"Calculating your emergency fund target based on your employment status...",
+	)
+
+	var emergencyFund EmergencyFund
 
 	switch status {
 	case Employee:
-		return EmergencyFund{
+		emergencyFund = EmergencyFund{
 			TargetAmount: monthlyNeeds * 3,
 			MonthsCount:  3,
-		}, nil
+		}
+
 	case SelfEmployed:
-		return EmergencyFund{
+		emergencyFund = EmergencyFund{
 			TargetAmount: monthlyNeeds * 6,
 			MonthsCount:  6,
-		}, nil
+		}
+
 	default:
 		return EmergencyFund{}, ErrInvalidStatus
 	}
+
+	fmt.Printf(
+		"Emergency fund target calculated: £%.2f (%d months of essential expenses)\n",
+		float64(emergencyFund.TargetAmount)/100,
+		emergencyFund.MonthsCount,
+	)
+
+	return emergencyFund, nil
 }
