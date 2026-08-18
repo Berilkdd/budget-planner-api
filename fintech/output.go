@@ -50,105 +50,6 @@ func PrintCurrentFinances(cf CurrentFinances) {
 
 }
 
-func PrintAvailablePlans(allocations AllocationOptions) {
-	fmt.Println()
-
-	fmt.Println(
-		"  The figures in the table below include the savings optimisation",
-	)
-	fmt.Println(
-		"  calculations described here.",
-	)
-	fmt.Println()
-
-	fmt.Println(
-		"  To optimise the protected buffer, we compare available",
-	)
-	fmt.Println(
-		"  instant-access savings tiers each month as the balance changes.",
-	)
-	fmt.Println()
-
-	fmt.Println("  The aim is not to increase your costs.")
-	fmt.Println()
-
-	fmt.Println(
-		"  We only consider an alternative account when the",
-	)
-	fmt.Println(
-		"  additional interest is expected to outweigh its fees.",
-	)
-	fmt.Println()
-
-	plans := []struct {
-		plan         BudgetStrategy
-		wantsPercent int64
-		description  string
-	}{
-		{
-			plan:         allocations.Sustainable,
-			wantsPercent: 30,
-			description:  "leaving more flexibility for lifestyle spending while maintaining the remaining income for essential needs and financial progress.",
-		},
-		{
-			plan:         allocations.Moderate,
-			wantsPercent: 25,
-			description:  "balancing lifestyle spending with a stronger contribution towards financial goals and debt repayment.",
-		},
-		{
-			plan:         allocations.Aggressive,
-			wantsPercent: 20,
-			description:  "prioritising financial progress by directing more of the remaining income towards savings and debt repayment.",
-		},
-	}
-
-	planNumber := 1
-
-	for _, item := range plans {
-		if !item.plan.Available {
-			continue
-		}
-
-		fmt.Printf("  %d. %s\n", planNumber, item.plan.Name)
-
-		fmt.Printf(
-			"     %d%% of income is allocated to wants, %s\n",
-			item.wantsPercent,
-			item.description,
-		)
-
-		fmt.Println()
-		fmt.Println("     Summary:")
-
-		fmt.Printf(
-			"       Needs:                 £%.2f\n",
-			float64(item.plan.Allocations.Needs)/100,
-		)
-
-		fmt.Printf(
-			"       Wants:                   £%.2f\n",
-			float64(item.plan.Allocations.Wants)/100,
-		)
-
-		fmt.Printf(
-			"       Monthly contribution:    £%.2f\n",
-			float64(item.plan.Allocations.Save)/100,
-		)
-
-		fmt.Println()
-
-		planNumber++
-	}
-
-	if planNumber == 1 {
-		fmt.Println("  No default plans are currently available.")
-		fmt.Println()
-		fmt.Println("  Please tell us how much you can contribute each month")
-		fmt.Println("  to create a Custom Plan.")
-		fmt.Println()
-	}
-}
-
 func PrintDebtFreedomStrategies(
 	cf CurrentFinances,
 	strategies DebtFreedomStrategies,
@@ -810,4 +711,280 @@ func PrintEmergencyFundStrategies(
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
 	fmt.Println()
+}
+
+func printTierOptimisation(
+	cf CurrentFinances,
+	breakpoints []TierBreakpoint,
+) {
+	if len(breakpoints) == 0 {
+		return
+	}
+
+	// The first breakpoint is always Month 0,
+	// recommended starting account.
+	startingTier := breakpoints[0]
+
+	fmt.Println("     Recommended starting account:")
+	fmt.Println()
+
+	fmt.Printf("       %s\n", startingTier.Tier.Name)
+	fmt.Printf(
+		"       AER: %.2f%%\n",
+		float64(startingTier.Tier.AER)/100,
+	)
+	fmt.Printf(
+		"       Fee: £%.2f\n",
+		float64(startingTier.Tier.Fee)/100,
+	)
+
+	fmt.Println()
+
+	// Everything after the first breakpoint represents
+	// a change to a better tier.
+	if len(breakpoints) == 1 {
+		fmt.Println("     No breakpoints reached.")
+		fmt.Println(
+			"     Savings remain in the starting account throughout the forecast.",
+		)
+		return
+	}
+
+	fmt.Println("     Breakpoints:")
+	fmt.Println()
+
+	for _, breakpoint := range breakpoints[1:] {
+		fmt.Printf(
+			"       %s\n",
+			formatDate(cf.CurrentDate, breakpoint.MonthOffset),
+		)
+
+		fmt.Printf(
+			"       Balance: £%.2f\n",
+			float64(breakpoint.Balance)/100,
+		)
+
+		fmt.Printf(
+			"       → %s becomes more beneficial\n",
+			breakpoint.Tier.Name,
+		)
+
+		fmt.Println()
+	}
+}
+
+type SelectablePlan struct {
+	Name         string
+	Allocation   Allocation
+	WantsPercent int64
+	Description  string
+	Breakpoints  []TierBreakpoint
+}
+
+func BuildDebtFreedomSelectablePlans(
+	strategies DebtFreedomStrategies,
+) []SelectablePlan {
+
+	plans := []SelectablePlan{}
+
+	debtPlans := []struct {
+		name         string
+		plan         DebtFreedomPlan
+		wantsPercent int64
+		description  string
+	}{
+		{
+			name:         "Sustainable Plan",
+			plan:         strategies.Sustainable,
+			wantsPercent: 30,
+			description:  "leaving more flexibility for lifestyle spending while prioritising steady debt repayment and financial progress.",
+		},
+		{
+			name:         "Moderate Plan",
+			plan:         strategies.Moderate,
+			wantsPercent: 25,
+			description:  "balancing lifestyle spending with a stronger contribution towards debt repayment and financial progress.",
+		},
+		{
+			name:         "Aggressive Plan",
+			plan:         strategies.Aggressive,
+			wantsPercent: 20,
+			description:  "prioritising faster debt repayment by directing more of the remaining income towards financial progress.",
+		},
+	}
+
+	for _, item := range debtPlans {
+
+		// The plan cannot be selected if it is unavailable
+		// or requires a Debt Management Plan.
+		if !item.plan.Available || item.plan.DMPRequired {
+			continue
+		}
+
+		var breakpoints []TierBreakpoint
+
+		// Phase 1: generating buffer
+		breakpoints = append(
+			breakpoints,
+			item.plan.BufferForecast.TierBreakpoints...,
+		)
+
+		// Phase 2: debt repayment timeline.
+		// BufferGrowth also includes the interest earned during this phase.
+		// Phase 2 starts from Month 0, so convert its local offset
+		// into the overall Debt Freedom timeline.
+		for _, breakpoint := range item.plan.BufferGrowth.TierBreakpoints {
+			breakpoint.MonthOffset += item.plan.BufferForecast.Phase1Months
+			breakpoints = append(breakpoints, breakpoint)
+		}
+
+		plans = append(plans, SelectablePlan{
+			Name:         item.name,
+			Allocation:   item.plan.Allocation,
+			WantsPercent: item.wantsPercent,
+			Description:  item.description,
+			Breakpoints:  breakpoints,
+		})
+	}
+
+	return plans
+}
+
+func BuildEmergencyFundSelectablePlans(
+	strategies EmergencyFundStrategies,
+) []SelectablePlan {
+
+	plans := []SelectablePlan{}
+
+	emergencyPlans := []struct {
+		name         string
+		plan         EmergencyFundPlan
+		wantsPercent int64
+		description  string
+	}{
+		{
+			name:         "Sustainable Plan",
+			plan:         strategies.Sustainable,
+			wantsPercent: 30,
+			description:  "leaving more flexibility while steadily building your financial safety net.",
+		},
+		{
+			name:         "Moderate Plan",
+			plan:         strategies.Moderate,
+			wantsPercent: 25,
+			description:  "balancing lifestyle spending with a stronger contribution towards your financial safety net.",
+		},
+		{
+			name:         "Aggressive Plan",
+			plan:         strategies.Aggressive,
+			wantsPercent: 20,
+			description:  "prioritising financial safety by directing more of the remaining income towards your emergency fund.",
+		},
+	}
+
+	for _, item := range emergencyPlans {
+
+		if !item.plan.Available {
+			continue
+		}
+
+		breakpoints := item.plan.Forecast.TierBreakpoints
+
+		plans = append(plans, SelectablePlan{
+			Name:         item.name,
+			Allocation:   item.plan.Allocation,
+			WantsPercent: item.wantsPercent,
+			Description:  item.description,
+			Breakpoints:  breakpoints,
+		})
+	}
+
+	return plans
+}
+
+func PrintAvailablePlans(
+	cf CurrentFinances,
+	plans []SelectablePlan,
+) {
+	fmt.Println()
+
+	fmt.Println(
+		"  The figures in the table below include the savings optimisation",
+	)
+	fmt.Println(
+		"  calculations described here.",
+	)
+	fmt.Println()
+
+	fmt.Println(
+		"  To optimise the protected buffer, we compare available",
+	)
+	fmt.Println(
+		"  instant-access savings tiers each month as the balance changes.",
+	)
+	fmt.Println()
+
+	fmt.Println("  The aim is not to increase your costs.")
+	fmt.Println()
+
+	fmt.Println(
+		"  We only consider an alternative account when the",
+	)
+	fmt.Println(
+		"  additional interest is expected to outweigh its fees.",
+	)
+	fmt.Println()
+
+	planNumber := 1
+
+	for _, item := range plans {
+		fmt.Printf(
+			"  %d. %s\n",
+			planNumber,
+			item.Name,
+		)
+
+		fmt.Printf(
+			"     %d%% of income is allocated to wants, %s\n",
+			item.WantsPercent,
+			item.Description,
+		)
+
+		fmt.Println()
+		fmt.Println("     Summary:")
+
+		fmt.Printf(
+			"       Needs:                 £%.2f\n",
+			float64(item.Allocation.Needs)/100,
+		)
+
+		fmt.Printf(
+			"       Wants:                 £%.2f\n",
+			float64(item.Allocation.Wants)/100,
+		)
+
+		fmt.Printf(
+			"       Monthly contribution:  £%.2f\n",
+			float64(item.Allocation.Save)/100,
+		)
+
+		fmt.Println()
+
+		printTierOptimisation(
+			cf,
+			item.Breakpoints,
+		)
+
+		fmt.Println()
+
+		planNumber++
+	}
+
+	if planNumber == 1 {
+		fmt.Println("  No default plans are currently available.")
+		fmt.Println()
+		fmt.Println("  Please tell us how much you can contribute each month")
+		fmt.Println("  to create a Custom Plan.")
+		fmt.Println()
+	}
 }
