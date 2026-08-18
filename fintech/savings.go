@@ -45,7 +45,7 @@ type ExcessSavingsForecast struct {
 }
 
 func CalculateExcessSavings(cf CurrentFinances, emergencyFund EmergencyFund) (ExcessSavingsForecast, error) {
-	if cf.UnsettledDebt == 0 && cf.CurrentSavings >= emergencyFund.TargetAmount {
+	if cf.UnsettledDebt == 0 && cf.CurrentSavings > emergencyFund.TargetAmount {
 		emergencyFundAmount := emergencyFund.TargetAmount
 		investmentAmount := cf.CurrentSavings - emergencyFundAmount
 		bestTier := CalculateBestInstantAccessTier(emergencyFundAmount)
