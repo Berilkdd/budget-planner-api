@@ -5,8 +5,8 @@ import "time"
 type EmploymentStatus string
 
 const (
-	Employee     EmploymentStatus = "EMPLOYEE"
-	SelfEmployed EmploymentStatus = "SELF_EMPLOYED"
+	Employee     EmploymentStatus = "Employee"
+	SelfEmployed EmploymentStatus = "Self Employed"
 )
 
 type CurrentFinances struct {
@@ -22,7 +22,25 @@ type CurrentFinances struct {
 	AvailableSurplus   int64
 }
 
+type DebtFreedomStrategy string
+
+const (
+	DebtFreedomSustainable DebtFreedomStrategy = "Sustainable"
+	DebtFreedomModerate    DebtFreedomStrategy = "Moderate"
+	DebtFreedomAggressive  DebtFreedomStrategy = "Aggressive"
+	DebtFreedomCustom      DebtFreedomStrategy = "Custom"
+)
+
+type EmergencyFundStrategy string
+
+const (
+	EmergencyFundSustainable EmergencyFundStrategy = "Sustainable"
+	EmergencyFundModerate    EmergencyFundStrategy = "Moderate"
+	EmergencyFundAggressive  EmergencyFundStrategy = "Aggressive"
+	EmergencyFundCustom      EmergencyFundStrategy = "Custom"
+)
+
 type UserDecisions struct {
-	DebtFreedomStrategy   string
-	EmergencyFundStrategy string
+	DebtFreedomStrategy   DebtFreedomStrategy
+	EmergencyFundStrategy EmergencyFundStrategy
 }
