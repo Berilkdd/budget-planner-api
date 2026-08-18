@@ -51,6 +51,35 @@ func PrintCurrentFinances(cf CurrentFinances) {
 }
 
 func PrintAvailablePlans(allocations AllocationOptions) {
+	fmt.Println()
+
+	fmt.Println(
+		"  The figures in the table below include the savings optimisation",
+	)
+	fmt.Println(
+		"  calculations described here.",
+	)
+	fmt.Println()
+
+	fmt.Println(
+		"  To optimise the protected buffer, we compare available",
+	)
+	fmt.Println(
+		"  instant-access savings tiers each month as the balance changes.",
+	)
+	fmt.Println()
+
+	fmt.Println("  The aim is not to increase your costs.")
+	fmt.Println()
+
+	fmt.Println(
+		"  We only consider an alternative account when the",
+	)
+	fmt.Println(
+		"  additional interest is expected to outweigh its fees.",
+	)
+	fmt.Println()
+
 	plans := []struct {
 		plan         BudgetStrategy
 		wantsPercent int64
@@ -92,17 +121,17 @@ func PrintAvailablePlans(allocations AllocationOptions) {
 		fmt.Println("     Summary:")
 
 		fmt.Printf(
-			"       Needs:                £%.2f\n",
+			"       Needs:                 £%.2f\n",
 			float64(item.plan.Allocations.Needs)/100,
 		)
 
 		fmt.Printf(
-			"       Wants:                £%.2f\n",
+			"       Wants:                   £%.2f\n",
 			float64(item.plan.Allocations.Wants)/100,
 		)
 
 		fmt.Printf(
-			"       Monthly contribution: £%.2f\n",
+			"       Monthly contribution:    £%.2f\n",
 			float64(item.plan.Allocations.Save)/100,
 		)
 
@@ -119,11 +148,6 @@ func PrintAvailablePlans(allocations AllocationOptions) {
 		fmt.Println()
 	}
 }
-
-const (
-	grey  = "\033[90m"
-	reset = "\033[0m"
-)
 
 func PrintDebtFreedomStrategies(
 	cf CurrentFinances,
@@ -217,12 +241,6 @@ func PrintDebtFreedomStrategies(
 			formatColumnValue("Aggressive", aggressiveGrey),
 		)
 	}
-
-	fmt.Println()
-	fmt.Println("  =================================================================================")
-	fmt.Println("                            DEBT FREEDOM PLAN FORECAST")
-	fmt.Println("  =================================================================================")
-	fmt.Println()
 
 	printHeader()
 
@@ -537,6 +555,11 @@ func totalPlanFees(plan DebtFreedomPlan) int64 {
 
 // FORMATTING HELPERS
 
+const (
+	grey  = "\033[90m"
+	reset = "\033[0m"
+)
+
 func formatMoney(amount int64) string {
 	return fmt.Sprintf("£%.2f", float64(amount)/100)
 }
@@ -705,12 +728,6 @@ func PrintEmergencyFundStrategies(
 			),
 		)
 	}
-
-	fmt.Println()
-	fmt.Println("  =================================================================================")
-	fmt.Println("                           EMERGENCY FUND FORECAST")
-	fmt.Println("  =================================================================================")
-	fmt.Println()
 
 	printHeader()
 

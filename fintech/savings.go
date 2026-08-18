@@ -37,6 +37,31 @@ func CalculateBestInstantAccessTier(balance int64) InstantAccessTier {
 	return bestTier
 }
 
+type TierBreakpoint struct {
+	MonthOffset int64
+	Balance     int64
+	Tier        InstantAccessTier
+}
+
+func recordTierBreakpoint(
+	breakpoints *[]TierBreakpoint,
+	monthOffset int64,
+	balance int64,
+	previousTier *InstantAccessTier,
+	currentTier InstantAccessTier,
+) {
+	if previousTier == nil || previousTier.Name != currentTier.Name {
+		*breakpoints = append(
+			*breakpoints,
+			TierBreakpoint{
+				MonthOffset: monthOffset,
+				Balance:     balance,
+				Tier:        currentTier,
+			},
+		)
+	}
+}
+
 // CalculateExcessSavings identifies surplus savings when the user has no debt and has fully funded their emergency fund.
 type ExcessSavingsForecast struct {
 	EmergencyFundAmount int64
