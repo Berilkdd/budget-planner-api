@@ -7,10 +7,13 @@ import (
 
 func PrintCurrentFinances(cf CurrentFinances) {
 	fmt.Println()
-	fmt.Println("  |----------------------------------|--------------------|")
-	fmt.Println("  |       CURRENT FINANCIAL          |                    |")
-	fmt.Println("  |             POSITION             |                    |")
-	fmt.Println("  |----------------------------------|--------------------|")
+	fmt.Println()
+	fmt.Println("  |-------------------------------------------------------|")
+	fmt.Printf(
+		"  |          FINANCIAL POSITION — %-20s    |\n",
+		cf.CurrentDate.Format("January 2006"),
+	)
+	fmt.Println("  |-------------------------------------------------------|")
 
 	fmt.Printf(
 		"  | %-32s | %-18s |\n",
@@ -32,32 +35,14 @@ func PrintCurrentFinances(cf CurrentFinances) {
 
 	fmt.Printf(
 		"  | %-32s | %-18s |\n",
-		"Available Surplus",
-		fmt.Sprintf("£%.2f", float64(cf.AvailableSurplus)/100),
-	)
-
-	fmt.Printf(
-		"  | %-32s | %-18s |\n",
 		"Unsettled Debt",
 		fmt.Sprintf("£%.2f", float64(cf.UnsettledDebt)/100),
 	)
 
 	fmt.Printf(
 		"  | %-32s | %-18s |\n",
-		"Has Debt",
-		fmt.Sprintf("%t", cf.HasDebt),
-	)
-
-	fmt.Printf(
-		"  | %-32s | %-18s |\n",
 		"Employment Status",
 		string(cf.EmploymentStatus),
-	)
-
-	fmt.Printf(
-		"  | %-32s | %-18s |\n",
-		"Current Date",
-		cf.CurrentDate.Format("January 2006"),
 	)
 
 	fmt.Println("  |----------------------------------|--------------------|")
@@ -75,121 +60,6 @@ func PrintDMPAssessment(assessment DMPAssessment) {
 	}
 
 	fmt.Println("[ACTION] DMP support is advised.")
-}
-
-// PrintAssessment prints the pathway, warnings, and recommended actions
-// produced by the assessment functions.
-func PrintAssessment(assessment AssessmentData) {
-	switch assessment.Pathway {
-	case PathwayA1:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningUnsettledDebt].Description,
-		)
-		fmt.Printf(
-			"[ACTION] %s\n",
-			ActionDefinitions[ActionFullDebtPaymentAdvised].Description,
-		)
-
-	case PathwayA2:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningUnsettledDebt].Description,
-		)
-		fmt.Printf(
-			"[ACTION] %s\n",
-			ActionDefinitions[ActionPartialDebtPaymentAdvised].Description,
-		)
-		fmt.Printf(
-			"[ACTION] %s\n",
-			ActionDefinitions[ActionDebtAdviceAdvised].Description,
-		)
-
-	case PathwayA3:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningUnsettledDebt].Description,
-		)
-		fmt.Printf(
-			"[ACTION] %s\n",
-			ActionDefinitions[ActionDebtAdviceAdvised].Description,
-		)
-
-	case PathwayB:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningEmergencyFundCovered].Description,
-		)
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningNoUnsettledDebt].Description,
-		)
-
-	case PathwayC:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningBelowEmergencyFund].Description,
-		)
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningUnsettledDebt].Description,
-		)
-		fmt.Printf(
-			"[ACTION] %s\n",
-			ActionDefinitions[ActionDebtAdviceAdvised].Description,
-		)
-
-	case PathwayD:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningBelowEmergencyFund].Description,
-		)
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningNoUnsettledDebt].Description,
-		)
-
-	case PathwayE1:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningNeedsBelow50].Description,
-		)
-
-	case PathwayE2:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningNeedsEqual50].Description,
-		)
-
-	case PathwayE3:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningNeedsBetween50And60].Description,
-		)
-
-	case PathwayE4:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningNeedsEqual60].Description,
-		)
-
-	case PathwayE5:
-		fmt.Printf(
-			"[WARNING] %s\n",
-			WarningDefinitions[WarningNeedsAbove60].Description,
-		)
-	}
-
-	if assessment.Pathway != "" {
-		fmt.Printf("[PATHWAY] %s\n", assessment.Pathway)
-	}
-
-	for _, action := range assessment.Actions {
-		fmt.Printf(
-			"[ACTION] %s\n",
-			ActionDefinitions[action].Description,
-		)
-	}
 }
 
 // PrintAllocation prints the calculated allocation for a budget strategy.
@@ -310,10 +180,6 @@ func PrintDebtFreedomStrategies(
 		)
 	}
 
-	// -------------------------------------------------------------------
-	// DEBT FREEDOM PLAN FORECAST
-	// -------------------------------------------------------------------
-
 	fmt.Println()
 	fmt.Println("  =================================================================================")
 	fmt.Println("                            DEBT FREEDOM PLAN FORECAST")
@@ -323,9 +189,6 @@ func PrintDebtFreedomStrategies(
 	printHeader()
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
-	// -------------------------------------------------------------------
-	// PLAN STATUS
-	// -------------------------------------------------------------------
 
 	fmt.Println("    PLAN STATUS")
 
@@ -371,7 +234,7 @@ func PrintDebtFreedomStrategies(
 	// PHASE 1 — BUFFER
 	// -------------------------------------------------------------------
 
-	fmt.Println("    PHASE 1 — BUFFER")
+	fmt.Println("    GENERATE EMERGENCY BUFFER")
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
 
@@ -442,11 +305,7 @@ func PrintDebtFreedomStrategies(
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
 
-	// -------------------------------------------------------------------
-	// PHASE 2 — DEBT
-	// -------------------------------------------------------------------
-
-	fmt.Println("    PHASE 2 — DEBT")
+	fmt.Println("    PAY DEBT OFF")
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
 
@@ -494,11 +353,7 @@ func PrintDebtFreedomStrategies(
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
 
-	// -------------------------------------------------------------------
-	// PHASE 2 — PROTECTED BUFFER
-	// -------------------------------------------------------------------
-
-	fmt.Println("    PHASE 2 — PROTECTED BUFFER")
+	fmt.Println("    PROTECTED BUFFER")
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
 
@@ -601,9 +456,7 @@ func PrintDebtFreedomStrategies(
 	fmt.Println()
 }
 
-// -----------------------------------------------------------------------
 // CALCULATION HELPERS
-// -----------------------------------------------------------------------
 
 func bufferRemaining(startingBalance, target int64) int64 {
 	remaining := target - startingBalance
@@ -644,9 +497,7 @@ func totalPlanFees(plan DebtFreedomPlan) int64 {
 		plan.BufferGrowth.Phase2Fees
 }
 
-// -----------------------------------------------------------------------
 // FORMATTING HELPERS
-// -----------------------------------------------------------------------
 
 func formatMoney(amount int64) string {
 	return fmt.Sprintf("£%.2f", float64(amount)/100)
@@ -826,7 +677,7 @@ func PrintEmergencyFundStrategies(
 	printHeader()
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
-	fmt.Println("    PHASE 3 — EMERGENCY FUND")
+	fmt.Println("    GENERATE EMERGENCY FUND")
 	fmt.Println("  ---------------------------------------------------------------------------------")
 
 	printMoney(
