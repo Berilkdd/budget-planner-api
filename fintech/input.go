@@ -1,32 +1,54 @@
 package fintech
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 )
+
+func readMoney() int64 {
+	var amount float64
+	fmt.Scan(&amount)
+	return int64(amount * 100)
+}
+
+func readOptionalPercentage() int64 {
+	reader := bufio.NewReader(os.Stdin)
+
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	if input == "" {
+		return 0
+	}
+
+	percentage, err := strconv.ParseFloat(input, 64)
+	if err != nil {
+		return 0
+	}
+
+	return int64(percentage * 100)
+}
 
 func CollectCurrentFinances() CurrentFinances {
 	var cf CurrentFinances
 
-	fmt.Println()
-	fmt.Println("========================================")
-	fmt.Println("            BUDGET PLANNER")
-	fmt.Println("========================================")
-	fmt.Println()
-
 	// Income
-	fmt.Print("Monthly income: £")
-	fmt.Scan(&cf.Income)
+	fmt.Print("  Monthly income: £")
+	cf.Income = readMoney()
 
 	// Employment status
 	fmt.Println()
-	fmt.Println("Employment status:")
-	fmt.Println("1. Employee")
-	fmt.Println("2. Self-employed")
+	fmt.Println("  Employment status:")
+	fmt.Println("  1. Employee")
+	fmt.Println("  2. Self-employed")
 
 	var employmentChoice int
-	fmt.Print("Enter your choice: ")
+	fmt.Print("  Enter your choice: ")
 	fmt.Scan(&employmentChoice)
 
 	switch employmentChoice {
@@ -41,51 +63,70 @@ func CollectCurrentFinances() CurrentFinances {
 	// Essential expenses
 	fmt.Println()
 	fmt.Print(
-		"Monthly essential expenses only (excluding wants and lifestyle spending): £",
+		"  Monthly essential expenses only (excluding wants and lifestyle spending): £",
 	)
-	fmt.Scan(&cf.Needs)
+	cf.Needs = readMoney()
 
 	// Current savings
-	fmt.Println()
-	fmt.Print("Do you have current savings? (y/n): ")
 
-	var savingsAnswer string
-	fmt.Scan(&savingsAnswer)
+	for {
+		fmt.Print("  Do you have any savings? (y/n): ")
 
-	if savingsAnswer == "y" || savingsAnswer == "Y" {
-		fmt.Print("Current savings: £")
-		fmt.Scan(&cf.CurrentSavings)
-	} else {
-		cf.CurrentSavings = 0
+		var answer string
+		fmt.Scan(&answer)
+
+		answer = strings.ToLower(answer)
+
+		if answer == "y" {
+			fmt.Print("  Current savings: £")
+			cf.CurrentSavings = readMoney()
+			break
+		}
+
+		if answer == "n" {
+			cf.CurrentSavings = 0
+			break
+		}
+
+		fmt.Println("  Invalid input. Please enter y or n.")
 	}
 
 	// Debt
-	fmt.Println()
-	fmt.Print("Do you have unsettled debt? (y/n): ")
 
-	var debtAnswer string
-	fmt.Scan(&debtAnswer)
+	for {
+		fmt.Print("  Do you have unsettled debt? (y/n): ")
 
-	if debtAnswer == "y" || debtAnswer == "Y" {
-		cf.HasDebt = true
+		var answer string
+		fmt.Scan(&answer)
 
-		fmt.Print("Unsettled debt: £")
-		fmt.Scan(&cf.UnsettledDebt)
+		answer = strings.ToLower(answer)
 
-		fmt.Print("Debt interest rate (if known): %")
+		if answer == "y" {
+			cf.HasDebt = true
 
-		var interestRate float64
-		fmt.Scan(&interestRate)
+			fmt.Print("  Unsettled debt: £")
+			cf.UnsettledDebt = readMoney()
 
-		cf.DebtInterestRate = int64(interestRate * 100)
+			fmt.Scanln()
 
-		fmt.Println(
-			"If unknown, we will use the default UK consumer credit rate for the forecast.",
-		)
-	} else {
-		cf.HasDebt = false
-		cf.UnsettledDebt = 0
-		cf.DebtInterestRate = 0
+			fmt.Print("  Debt interest rate (if known): %")
+			cf.DebtInterestRate = readOptionalPercentage()
+
+			fmt.Println(
+				"  If unknown, we will use the default UK consumer credit rate for the forecast.",
+			)
+
+			break
+		}
+
+		if answer == "n" {
+			cf.HasDebt = false
+			cf.UnsettledDebt = 0
+			cf.DebtInterestRate = 0
+			break
+		}
+
+		fmt.Println("  Invalid input. Please enter y or n.")
 	}
 
 	// Current date is provided by the system.
@@ -94,198 +135,158 @@ func CollectCurrentFinances() CurrentFinances {
 	return cf
 }
 
-func SelectDebtFreedomPlan(
-	cf CurrentFinances,
-	strategies DebtFreedomStrategies,
-	baselineBuffer BaselineBuffer,
-) (DebtFreedomPlan, error) {
+// Translates the user's selected Debt Freedom plan into the corresponding backend strategy
+func TranslateDebtFreedomSelection(
+	selectedPlan SelectablePlan,
+) DebtFreedomStrategy {
 
-	customCreated := false
+	switch selectedPlan.Name {
+	case "Sustainable Plan":
+		return DebtFreedomSustainable
 
-	for {
-		fmt.Println()
-		fmt.Println("Choose a Debt Freedom Plan:")
-		fmt.Println("1. Sustainable")
-		fmt.Println("2. Moderate")
-		fmt.Println("3. Aggressive")
+	case "Moderate Plan":
+		return DebtFreedomModerate
 
-		if !customCreated {
-			fmt.Println("4. Create a Custom Plan")
-		} else {
-			fmt.Println("4. Custom")
-			fmt.Println("5. Try another custom contribution")
-		}
+	case "Aggressive Plan":
+		return DebtFreedomAggressive
 
-		var choice int
-		fmt.Print("Enter your choice: ")
-		fmt.Scan(&choice)
+	case "Custom Plan":
+		return DebtFreedomCustom
 
-		switch choice {
-
-		case 1:
-			return strategies.Sustainable, nil
-
-		case 2:
-			return strategies.Moderate, nil
-
-		case 3:
-			return strategies.Aggressive, nil
-
-		case 4:
-			if !customCreated {
-				var contribution int64
-
-				fmt.Print("How much can you contribute monthly? £")
-				fmt.Scan(&contribution)
-
-				customPlan, err := GenerateCustomDebtFreedomPlan(
-					cf,
-					baselineBuffer,
-					contribution,
-				)
-				if err != nil {
-					return DebtFreedomPlan{}, err
-				}
-
-				strategies.Custom = customPlan
-				customCreated = true
-
-				fmt.Println()
-				fmt.Println("Custom plan generated.")
-				continue
-			}
-
-			return strategies.Custom, nil
-
-		case 5:
-			if customCreated {
-				var contribution int64
-
-				fmt.Print("How much can you contribute monthly? £")
-				fmt.Scan(&contribution)
-
-				customPlan, err := GenerateCustomDebtFreedomPlan(
-					cf,
-					baselineBuffer,
-					contribution,
-				)
-				if err != nil {
-					return DebtFreedomPlan{}, err
-				}
-
-				strategies.Custom = customPlan
-
-				fmt.Println()
-				fmt.Println("Custom plan updated.")
-				continue
-			}
-
-			return DebtFreedomPlan{}, errors.New(
-				"invalid debt freedom plan selection",
-			)
-
-		default:
-			return DebtFreedomPlan{}, errors.New(
-				"invalid debt freedom plan selection",
-			)
-		}
+	default:
+		return ""
 	}
 }
 
-func SelectEmergencyFundPlan(
+// Translates the user's selected Emergency Fund plan into the corresponding backend strategy
+func TranslateEmergencyFundSelection(
+	selectedPlan SelectablePlan,
+) EmergencyFundStrategy {
+
+	switch selectedPlan.Name {
+	case "Sustainable Plan":
+		return EmergencyFundSustainable
+
+	case "Moderate Plan":
+		return EmergencyFundModerate
+
+	case "Aggressive Plan":
+		return EmergencyFundAggressive
+
+	case "Custom Plan":
+		return EmergencyFundCustom
+
+	default:
+		return ""
+	}
+}
+
+// Handles plan selection, custom contribution input, and regeneration of the custom plan forecast
+func SelectPlan(
 	cf CurrentFinances,
-	strategies EmergencyFundStrategies,
-	targetAmount int64,
-) (EmergencyFundPlan, error) {
+	plans []SelectablePlan,
+	createCustomPlan func(int64) (SelectablePlan, error),
+) (SelectablePlan, error) {
 
 	customCreated := false
 
 	for {
 		fmt.Println()
-		fmt.Println("Choose an Emergency Fund Plan:")
-		fmt.Println("1. Sustainable")
-		fmt.Println("2. Moderate")
-		fmt.Println("3. Aggressive")
+
+		// No standard plans are available.
+		if len(plans) == 0 && !customCreated {
+			fmt.Println("  Your current budget does not support any of the standard plans.")
+			fmt.Println()
+			fmt.Println("  Please enter the monthly amount you can contribute.")
+			fmt.Println()
+
+			var contribution int64
+
+			fmt.Print("  Monthly contribution: £")
+			fmt.Scan(&contribution)
+
+			customPlan, err := createCustomPlan(contribution)
+			if err != nil {
+				return SelectablePlan{}, err
+			}
+
+			plans = append(plans, customPlan)
+			customCreated = true
+
+			PrintAvailablePlans(cf, plans)
+
+			continue
+		}
+
+		fmt.Println("  Choose a Plan:")
+
+		for i, plan := range plans {
+			fmt.Printf("  %d. %s\n", i+1, plan.Name)
+		}
+
+		customOption := len(plans) + 1
 
 		if !customCreated {
-			fmt.Println("4. Create a Custom Plan")
+			fmt.Printf("  %d. Create a Custom Plan\n", customOption)
 		} else {
-			fmt.Println("4. Custom")
-			fmt.Println("5. Try another custom contribution")
+			fmt.Printf(
+				"  %d. Try another custom contribution\n",
+				customOption,
+			)
 		}
 
 		var choice int
-		fmt.Print("Enter your choice: ")
+
+		fmt.Print("  Enter your choice: ")
 		fmt.Scan(&choice)
 
-		switch choice {
-
-		case 1:
-			return strategies.Sustainable, nil
-
-		case 2:
-			return strategies.Moderate, nil
-
-		case 3:
-			return strategies.Aggressive, nil
-
-		case 4:
-			if !customCreated {
-				var contribution int64
-
-				fmt.Print("How much can you contribute monthly? £")
-				fmt.Scan(&contribution)
-
-				customPlan, err := GenerateCustomEmergencyFundPlan(
-					cf,
-					targetAmount,
-					contribution,
-				)
-				if err != nil {
-					return EmergencyFundPlan{}, err
-				}
-
-				strategies.Custom = customPlan
-				customCreated = true
-
-				fmt.Println()
-				fmt.Println("Custom plan generated.")
-				continue
-			}
-
-			return strategies.Custom, nil
-
-		case 5:
-			if customCreated {
-				var contribution int64
-
-				fmt.Print("How much can you contribute monthly? £")
-				fmt.Scan(&contribution)
-
-				customPlan, err := GenerateCustomEmergencyFundPlan(
-					cf,
-					targetAmount,
-					contribution,
-				)
-				if err != nil {
-					return EmergencyFundPlan{}, err
-				}
-
-				strategies.Custom = customPlan
-
-				fmt.Println()
-				fmt.Println("Custom plan updated.")
-				continue
-			}
-
-			return EmergencyFundPlan{}, errors.New(
-				"invalid emergency fund plan selection",
-			)
-
-		default:
-			return EmergencyFundPlan{}, errors.New(
-				"invalid emergency fund plan selection",
-			)
+		// Existing selectable plan.
+		if choice >= 1 && choice <= len(plans) {
+			return plans[choice-1], nil
 		}
+
+		// Create the first custom plan.
+		if !customCreated && choice == customOption {
+			var contribution int64
+
+			fmt.Print("  How much can you contribute monthly? £")
+			fmt.Scan(&contribution)
+
+			customPlan, err := createCustomPlan(contribution)
+			if err != nil {
+				return SelectablePlan{}, err
+			}
+
+			plans = append(plans, customPlan)
+			customCreated = true
+
+			PrintAvailablePlans(cf, plans)
+
+			continue
+		}
+
+		// Generate another custom plan.
+		if customCreated && choice == customOption {
+			var contribution int64
+
+			fmt.Print("  How much can you contribute monthly? £")
+			fmt.Scan(&contribution)
+
+			customPlan, err := createCustomPlan(contribution)
+			if err != nil {
+				return SelectablePlan{}, err
+			}
+
+			// Replace the existing custom plan.
+			plans[len(plans)-1] = customPlan
+
+			PrintAvailablePlans(cf, plans)
+
+			continue
+		}
+
+		return SelectablePlan{}, errors.New(
+			"invalid plan selection",
+		)
 	}
 }
