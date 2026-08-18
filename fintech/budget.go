@@ -24,17 +24,13 @@ type AllocationOptions struct {
 }
 
 // Calculates the allocation for a default strategy.
-func calculateAllocation(cf CurrentFinances, strategyName string, wantsPercent int64) Allocation {
+func calculateAllocation(
+	cf CurrentFinances,
+	wantsPercent int64,
+) Allocation {
+
 	wants := (cf.Income * wantsPercent) / 100
 	save := cf.Income - cf.Needs - wants
-
-	fmt.Printf(
-		"[CALCULATED] %s: Needs £%.2f | Wants £%.2f | Contribution £%.2f\n",
-		strategyName,
-		float64(cf.Needs)/100,
-		float64(wants)/100,
-		float64(save)/100,
-	)
 
 	return Allocation{
 		Needs: cf.Needs,
@@ -50,12 +46,10 @@ func GenerateAllocation(cf CurrentFinances) (AllocationOptions, error) {
 		return AllocationOptions{}, ErrZeroIncome
 	}
 
-	// Calculate wants for each strategy.
-	sustainable := calculateAllocation(cf, "Sustainable", 30)
-	moderate := calculateAllocation(cf, "Moderate", 25)
-	aggressive := calculateAllocation(cf, "Aggressive", 20)
+	sustainable := calculateAllocation(cf, 30)
+	moderate := calculateAllocation(cf, 25)
+	aggressive := calculateAllocation(cf, 20)
 
-	// Create budget strategies.
 	sustainableStrategy := BudgetStrategy{
 		Name:        "Sustainable Plan",
 		Allocations: sustainable,
@@ -72,21 +66,6 @@ func GenerateAllocation(cf CurrentFinances) (AllocationOptions, error) {
 		Name:        "Aggressive Plan",
 		Allocations: aggressive,
 		Available:   aggressive.Save > 0,
-	}
-
-	// Print the availability of each strategy.
-	strategies := []BudgetStrategy{
-		sustainableStrategy,
-		moderateStrategy,
-		aggressiveStrategy,
-	}
-
-	for _, strategy := range strategies {
-		if strategy.Available {
-			fmt.Printf("[STRATEGY AVAILABLE] %s\n", strategy.Name)
-		} else {
-			fmt.Printf("[STRATEGY UNAVAILABLE] %s\n", strategy.Name)
-		}
 	}
 
 	return AllocationOptions{

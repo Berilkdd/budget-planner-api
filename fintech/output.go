@@ -47,38 +47,76 @@ func PrintCurrentFinances(cf CurrentFinances) {
 
 	fmt.Println("  |----------------------------------|--------------------|")
 	fmt.Println()
+
 }
 
-// PrintDMPAssessment prints the result of the DMP safety assessment.
-func PrintDMPAssessment(assessment DMPAssessment) {
-	if !assessment.DMPRequired {
-		return
+func PrintAvailablePlans(allocations AllocationOptions) {
+	plans := []struct {
+		plan         BudgetStrategy
+		wantsPercent int64
+		description  string
+	}{
+		{
+			plan:         allocations.Sustainable,
+			wantsPercent: 30,
+			description:  "leaving more flexibility for lifestyle spending while maintaining the remaining income for essential needs and financial progress.",
+		},
+		{
+			plan:         allocations.Moderate,
+			wantsPercent: 25,
+			description:  "balancing lifestyle spending with a stronger contribution towards financial goals and debt repayment.",
+		},
+		{
+			plan:         allocations.Aggressive,
+			wantsPercent: 20,
+			description:  "prioritising financial progress by directing more of the remaining income towards savings and debt repayment.",
+		},
 	}
 
-	for _, reason := range assessment.Reasons {
-		fmt.Printf("[WARNING] %s\n", reason)
+	planNumber := 1
+
+	for _, item := range plans {
+		if !item.plan.Available {
+			continue
+		}
+
+		fmt.Printf("  %d. %s\n", planNumber, item.plan.Name)
+
+		fmt.Printf(
+			"     %d%% of income is allocated to wants, %s\n",
+			item.wantsPercent,
+			item.description,
+		)
+
+		fmt.Println()
+		fmt.Println("     Summary:")
+
+		fmt.Printf(
+			"       Needs:                £%.2f\n",
+			float64(item.plan.Allocations.Needs)/100,
+		)
+
+		fmt.Printf(
+			"       Wants:                £%.2f\n",
+			float64(item.plan.Allocations.Wants)/100,
+		)
+
+		fmt.Printf(
+			"       Monthly contribution: £%.2f\n",
+			float64(item.plan.Allocations.Save)/100,
+		)
+
+		fmt.Println()
+
+		planNumber++
 	}
 
-	fmt.Println("[ACTION] DMP support is advised.")
-}
-
-// PrintAllocation prints the calculated allocation for a budget strategy.
-func PrintAllocation(strategy BudgetStrategy) {
-	fmt.Printf(
-		"[CALCULATED] %s: Needs £%.2f | Wants £%.2f | Contribution £%.2f\n",
-		strategy.Name,
-		float64(strategy.Allocations.Needs)/100,
-		float64(strategy.Allocations.Wants)/100,
-		float64(strategy.Allocations.Save)/100,
-	)
-}
-
-// PrintStrategyAvailability prints whether a budget strategy can be used.
-func PrintStrategyAvailability(strategy BudgetStrategy) {
-	if strategy.Available {
-		fmt.Printf("[STRATEGY AVAILABLE] %s\n", strategy.Name)
-	} else {
-		fmt.Printf("[STRATEGY UNAVAILABLE] %s\n", strategy.Name)
+	if planNumber == 1 {
+		fmt.Println("  No default plans are currently available.")
+		fmt.Println()
+		fmt.Println("  Please tell us how much you can contribute each month")
+		fmt.Println("  to create a Custom Plan.")
+		fmt.Println()
 	}
 }
 
