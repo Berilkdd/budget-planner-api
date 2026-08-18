@@ -19,6 +19,8 @@ func RunPlanner() error {
 		return err
 	}
 
+	var userDecisions UserDecisions
+
 	// 2. Assess deficit position
 	fmt.Println()
 	fmt.Println("  Assessing your current financial position...")
@@ -83,11 +85,12 @@ func RunPlanner() error {
 			}
 		}
 
-		if cf.UnsettledDebt == 0 {
-			return nil
-		}
-
 		// 4.2. Generate Debt Freedom Strategies
+		fmt.Println()
+		fmt.Println("  =================================================================================")
+		fmt.Println("                            DEBT FREEDOM PLAN FORECAST")
+		fmt.Println("  =================================================================================")
+		fmt.Println()
 
 		strategies, err := GenerateDebtFreedomStrategies(
 			cf,
@@ -133,22 +136,86 @@ func RunPlanner() error {
 					fmt.Println("    -", reason)
 				}
 			}
+
 		}
 
-		// 4.3. Select Debt Freedom Plan
+		// 4.3. Select Available Plans
 
-		selectedPlan, err := SelectDebtFreedomPlan(
+		debtPlans := BuildDebtFreedomSelectablePlans(strategies)
+
+		PrintAvailablePlans(
 			cf,
-			strategies,
-			baselineBuffer,
+			debtPlans,
+		)
+
+		var selectedDebtPlan DebtFreedomPlan
+
+		selectedPlan, err := SelectPlan(
+			cf,
+			debtPlans,
+			func(contribution int64) (SelectablePlan, error) {
+
+				cf.CustomContribution = contribution
+
+				customPlan, err := GenerateCustomDebtFreedomPlan(
+					cf,
+					baselineBuffer,
+					contribution,
+				)
+				if err != nil {
+					return SelectablePlan{}, err
+				}
+
+				selectedDebtPlan = customPlan
+
+				var breakpoints []TierBreakpoint
+
+				breakpoints = append(
+					breakpoints,
+					customPlan.BufferForecast.TierBreakpoints...,
+				)
+
+				for _, breakpoint := range customPlan.BufferGrowth.TierBreakpoints {
+					breakpoint.MonthOffset += customPlan.BufferForecast.Phase1Months
+					breakpoints = append(breakpoints, breakpoint)
+				}
+
+				return SelectablePlan{
+					Name:        "Custom Plan",
+					Allocation:  customPlan.Allocation,
+					Description: "a personalised contribution based on the amount you can afford each month.",
+					Breakpoints: breakpoints,
+				}, nil
+			},
 		)
 		if err != nil {
 			return err
 		}
 
-		// 4.4. Apply Debt Freedom Plan
+		userDecisions.DebtFreedomStrategy =
+			TranslateDebtFreedomSelection(selectedPlan)
 
-		if err := ApplyDebtFreedomPlan(&cf, selectedPlan); err != nil {
+			// 4.4. Apply Debt Freedom Plan
+
+		switch userDecisions.DebtFreedomStrategy {
+
+		case DebtFreedomSustainable:
+			selectedDebtPlan = strategies.Sustainable
+
+		case DebtFreedomModerate:
+			selectedDebtPlan = strategies.Moderate
+
+		case DebtFreedomAggressive:
+			selectedDebtPlan = strategies.Aggressive
+
+		case DebtFreedomCustom:
+			// selectedDebtPlan was generated during custom selection.
+
+		default:
+			return fmt.Errorf("invalid debt freedom strategy")
+		}
+
+		if err := ApplyDebtFreedomPlan(&cf, selectedDebtPlan); err != nil {
 			return err
 		}
 	}
@@ -199,7 +266,13 @@ func RunPlanner() error {
 		_ = excessSavings
 	}
 
-	// 7. Emergency Fund
+	// 7. Emergency Fund Forecast
+
+	fmt.Println()
+	fmt.Println("  =================================================================================")
+	fmt.Println("                           EMERGENCY FUND FORECAST")
+	fmt.Println("  =================================================================================")
+	fmt.Println()
 
 	if cf.UnsettledDebt == 0 &&
 		cf.CurrentSavings < emergencyFund.TargetAmount {
@@ -217,20 +290,73 @@ func RunPlanner() error {
 
 		// 7.2. Select Emergency Fund Plan
 
-		selectedPlan, err := SelectEmergencyFundPlan(
+		emergencyPlans := BuildEmergencyFundSelectablePlans(strategies)
+
+		PrintAvailablePlans(
 			cf,
-			strategies,
-			emergencyFund.TargetAmount,
+			emergencyPlans,
+		)
+
+		var selectedEmergencyPlan EmergencyFundPlan
+
+		selectedPlan, err := SelectPlan(
+			cf,
+			emergencyPlans,
+			func(contribution int64) (SelectablePlan, error) {
+
+				cf.CustomContribution = contribution
+
+				customPlan, err := GenerateCustomEmergencyFundPlan(
+					cf,
+					emergencyFund.TargetAmount,
+					contribution,
+				)
+				if err != nil {
+					return SelectablePlan{}, err
+				}
+
+				selectedEmergencyPlan = customPlan
+
+				return SelectablePlan{
+					Name:        "Custom Plan",
+					Allocation:  customPlan.Allocation,
+					Description: "a personalised contribution based on the amount you can afford each month.",
+					Breakpoints: customPlan.Forecast.TierBreakpoints,
+				}, nil
+			},
 		)
 		if err != nil {
 			return err
 		}
 
+		userDecisions.EmergencyFundStrategy =
+			TranslateEmergencyFundSelection(selectedPlan)
+
 		// 7.3. Apply Emergency Fund Plan
 
-		if err := ApplyEmergencyFundPlan(&cf, selectedPlan); err != nil {
+		switch userDecisions.EmergencyFundStrategy {
+
+		case EmergencyFundSustainable:
+			selectedEmergencyPlan = strategies.Sustainable
+
+		case EmergencyFundModerate:
+			selectedEmergencyPlan = strategies.Moderate
+
+		case EmergencyFundAggressive:
+			selectedEmergencyPlan = strategies.Aggressive
+
+		case EmergencyFundCustom:
+			// selectedEmergencyPlan was generated during custom selection.
+
+		default:
+			return fmt.Errorf("invalid emergency fund strategy")
+		}
+
+		if err := ApplyEmergencyFundPlan(&cf, selectedEmergencyPlan); err != nil {
 			return err
 		}
+
+		return nil
 	}
 
 	return nil
