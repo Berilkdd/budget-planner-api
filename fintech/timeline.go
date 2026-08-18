@@ -6,6 +6,7 @@ type BufferGrowthForecast struct {
 	FinalBuffer        int64
 	Phase2InterestGain int64
 	Phase2Fees         int64
+	TierBreakpoints    []TierBreakpoint
 }
 
 func CalculateBufferGrowthDuringDebt(
@@ -17,10 +18,23 @@ func CalculateBufferGrowthDuringDebt(
 	interestGain := int64(0)
 	fees := int64(0)
 
+	var tierBreakpoints []TierBreakpoint
+	var previousTier *InstantAccessTier
+
 	for i := int64(0); i < phase2Months; i++ {
 
 		// Calculate the best instant access tier for the protected buffer.
 		winningTier := CalculateBestInstantAccessTier(runningBuffer)
+
+		recordTierBreakpoint(
+			&tierBreakpoints,
+			i,
+			runningBuffer,
+			previousTier,
+			winningTier,
+		)
+
+		previousTier = &winningTier
 
 		// Apply the tier fee.
 		runningBuffer -= winningTier.Fee
@@ -36,6 +50,7 @@ func CalculateBufferGrowthDuringDebt(
 		FinalBuffer:        runningBuffer,
 		Phase2InterestGain: interestGain,
 		Phase2Fees:         fees,
+		TierBreakpoints:    tierBreakpoints,
 	}
 }
 
@@ -99,6 +114,7 @@ type BufferForecast struct {
 	Phase1Surplus      int64
 	Phase1InterestGain int64
 	Phase1Fees         int64
+	TierBreakpoints    []TierBreakpoint
 }
 
 func CalculateBufferTimeline(cf CurrentFinances, monthlySave, baselineBuffer int64) (BufferForecast, error) {
@@ -131,12 +147,24 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave, baselineBuffer int
 	interestGain := int64(0)
 	fees := int64(0)
 
+	var tierBreakpoints []TierBreakpoint
+	var previousTier *InstantAccessTier
+
 	// Step forward month by month until the baseline buffer is reached.
 	for runningSavings < baselineBuffer {
-		months++
 
 		// Calculate the best instant access tier for the current balance.
 		winningTier := CalculateBestInstantAccessTier(runningSavings)
+
+		recordTierBreakpoint(
+			&tierBreakpoints,
+			months,
+			runningSavings,
+			previousTier,
+			winningTier,
+		)
+
+		previousTier = &winningTier
 
 		// Apply the tier fee.
 		runningSavings -= winningTier.Fee
@@ -150,6 +178,9 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave, baselineBuffer int
 		// Add the monthly saving allocation.
 		runningSavings += monthlySave
 
+		// One month of the forecast has now passed.
+		months++
+
 		// Check if the baseline buffer has been reached.
 		if runningSavings >= baselineBuffer {
 			surplus := runningSavings - baselineBuffer
@@ -159,6 +190,7 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave, baselineBuffer int
 				Phase1Surplus:      surplus,
 				Phase1InterestGain: interestGain,
 				Phase1Fees:         fees,
+				TierBreakpoints:    tierBreakpoints,
 			}, nil
 		}
 	}
@@ -168,6 +200,7 @@ func CalculateBufferTimeline(cf CurrentFinances, monthlySave, baselineBuffer int
 		Phase1Surplus:      0,
 		Phase1InterestGain: interestGain,
 		Phase1Fees:         fees,
+		TierBreakpoints:    tierBreakpoints,
 	}, nil
 }
 
@@ -288,6 +321,7 @@ type EmergencyFundForecast struct {
 	Phase3Surplus      int64
 	Phase3InterestGain int64
 	Phase3Fees         int64
+	TierBreakpoints    []TierBreakpoint
 }
 
 // CalculateEmergencyFundTimeline simulates building the emergency fund
@@ -317,12 +351,24 @@ func CalculateEmergencyFundTimeline(
 	interestGain := int64(0)
 	fees := int64(0)
 
+	var tierBreakpoints []TierBreakpoint
+	var previousTier *InstantAccessTier
+
 	// Step forward month by month until the emergency fund target is reached.
 	for runningSavings < targetAmount {
-		months++
 
 		// Calculate the best instant access tier for the current balance.
 		winningTier := CalculateBestInstantAccessTier(runningSavings)
+
+		recordTierBreakpoint(
+			&tierBreakpoints,
+			months,
+			runningSavings,
+			previousTier,
+			winningTier,
+		)
+
+		previousTier = &winningTier
 
 		// Apply the tier fee.
 		runningSavings -= winningTier.Fee
@@ -336,6 +382,9 @@ func CalculateEmergencyFundTimeline(
 		// Add the monthly saving allocation.
 		runningSavings += monthlySave
 
+		// One month of the forecast has now passed.
+		months++
+
 		// Check if the emergency fund target has been reached.
 		if runningSavings >= targetAmount {
 			surplus := runningSavings - targetAmount
@@ -345,6 +394,7 @@ func CalculateEmergencyFundTimeline(
 				Phase3Surplus:      surplus,
 				Phase3InterestGain: interestGain,
 				Phase3Fees:         fees,
+				TierBreakpoints:    tierBreakpoints,
 			}, nil
 		}
 	}
@@ -354,6 +404,7 @@ func CalculateEmergencyFundTimeline(
 		Phase3Surplus:      0,
 		Phase3InterestGain: interestGain,
 		Phase3Fees:         fees,
+		TierBreakpoints:    tierBreakpoints,
 	}, nil
 }
 
