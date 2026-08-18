@@ -367,6 +367,7 @@ type DebtFreedomPlan struct {
 	DebtForecast   DebtForecast
 	BufferGrowth   BufferGrowthForecast
 	DMPRequired    bool
+	DMPReasons     []string
 }
 
 func calculateDebtFreedomPlan(
@@ -418,6 +419,7 @@ func calculateDebtFreedomPlan(
 	dmpAssessment := AssessDMPNeed(cf, plan)
 
 	plan.DMPRequired = dmpAssessment.DMPRequired
+	plan.DMPReasons = dmpAssessment.Reasons
 
 	return plan, nil
 }
