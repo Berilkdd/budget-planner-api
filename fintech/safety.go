@@ -33,9 +33,8 @@ func CalculateEmergencyTarget(
 		return EmergencyFund{}, ErrZeroNeeds
 	}
 
-	fmt.Println()
 	fmt.Println(
-		"Calculating your emergency fund target based on your employment status...",
+		"  Calculating your emergency fund target based on your employment status...",
 	)
 
 	var emergencyFund EmergencyFund
@@ -57,11 +56,14 @@ func CalculateEmergencyTarget(
 		return EmergencyFund{}, ErrInvalidStatus
 	}
 
+	fmt.Println()
 	fmt.Printf(
-		"Emergency fund target calculated: £%.2f (%d months of essential expenses)\n",
+		"  Emergency fund target calculated: £%.2f (%d months of essential expenses)\n",
 		float64(emergencyFund.TargetAmount)/100,
 		emergencyFund.MonthsCount,
 	)
+	fmt.Println()
+	fmt.Println()
 
 	return emergencyFund, nil
 }
