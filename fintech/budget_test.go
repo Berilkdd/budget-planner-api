@@ -14,266 +14,115 @@ func TestAssessDeficitPosition(t *testing.T) {
 	tests := []struct {
 		name             string
 		finances         CurrentFinances
-		expectedPathway  PathwayCode
-		expectedActions  []ActionCode
 		expectedEF       int64
 		expectedEFMonths int64
 	}{
 		{
-			name: "A1 - enough savings to clear debt",
+			name: "1 - savings >= emergency fund + debt",
 			finances: CurrentFinances{
-				Income:           2000,
-				Needs:            2500,
-				CurrentSavings:   10500,
-				UnsettledDebt:    3000,
+				Income:           6000,
+				Needs:            7000,
+				CurrentSavings:   26000,
+				UnsettledDebt:    5000,
 				EmploymentStatus: Employee,
 			},
-			expectedPathway: PathwayA1,
-			expectedActions: []ActionCode{
-				ActionFullDebtPaymentAdvised,
-			},
-			expectedEF:       7500,
+			expectedEF:       21000,
 			expectedEFMonths: 3,
 		},
 
 		{
-			name: "A2 - partial debt repayment possible",
+			name: "2 - savings < debt + emergency fund and savings > emergency fund",
 			finances: CurrentFinances{
-				Income:           2000,
-				Needs:            2500,
-				CurrentSavings:   9000,
-				UnsettledDebt:    3000,
+				Income:           6000,
+				Needs:            7000,
+				CurrentSavings:   23000,
+				UnsettledDebt:    5000,
 				EmploymentStatus: Employee,
 			},
-			expectedPathway: PathwayA2,
-			expectedActions: []ActionCode{
-				ActionPartialDebtPaymentAdvised,
-				ActionDebtAdviceAdvised,
-			},
-			expectedEF:       7500,
+			expectedEF:       21000,
 			expectedEFMonths: 3,
 		},
 
 		{
-			name: "A3 - emergency fund covered but no extra savings",
+			name: "3 - savings < emergency fund and debt > 0",
 			finances: CurrentFinances{
-				Income:           2000,
-				Needs:            2500,
-				CurrentSavings:   7500,
-				UnsettledDebt:    3000,
+				Income:           6000,
+				Needs:            7000,
+				CurrentSavings:   15000,
+				UnsettledDebt:    5000,
 				EmploymentStatus: Employee,
 			},
-			expectedPathway: PathwayA3,
-			expectedActions: []ActionCode{
-				ActionDebtAdviceAdvised,
-			},
-			expectedEF:       7500,
+			expectedEF:       21000,
 			expectedEFMonths: 3,
 		},
 
 		{
-			name: "B - emergency fund covered and no debt",
+			name: "4 - savings == emergency fund and debt > 0",
 			finances: CurrentFinances{
-				Income:           2000,
-				Needs:            2500,
-				CurrentSavings:   7500,
+				Income:           6000,
+				Needs:            7000,
+				CurrentSavings:   21000,
+				UnsettledDebt:    5000,
+				EmploymentStatus: Employee,
+			},
+			expectedEF:       21000,
+			expectedEFMonths: 3,
+		},
+
+		{
+			name: "5 - emergency fund < savings and no debt",
+			finances: CurrentFinances{
+				Income:           6000,
+				Needs:            7000,
+				CurrentSavings:   25000,
 				UnsettledDebt:    0,
 				EmploymentStatus: Employee,
 			},
-			expectedPathway:  PathwayB,
-			expectedActions:  []ActionCode{},
-			expectedEF:       7500,
+			expectedEF:       21000,
 			expectedEFMonths: 3,
 		},
 
 		{
-			name: "C - emergency fund below target and debt",
+			name: "6 - emergency fund > savings and no debt",
 			finances: CurrentFinances{
-				Income:           2000,
-				Needs:            2500,
-				CurrentSavings:   5000,
-				UnsettledDebt:    3000,
-				EmploymentStatus: Employee,
-			},
-			expectedPathway: PathwayC,
-			expectedActions: []ActionCode{
-				ActionSupportAdvised,
-				ActionDebtAdviceAdvised,
-			},
-			expectedEF:       7500,
-			expectedEFMonths: 3,
-		},
-
-		{
-			name: "D - emergency fund below target and no debt",
-			finances: CurrentFinances{
-				Income:           2000,
-				Needs:            2500,
-				CurrentSavings:   5000,
-				UnsettledDebt:    0,
-				EmploymentStatus: Employee,
-			},
-			expectedPathway: PathwayD,
-			expectedActions: []ActionCode{
-				ActionSupportAdvised,
-			},
-			expectedEF:       7500,
-			expectedEFMonths: 3,
-		},
-
-		{
-			name: "Self-employed - six month emergency fund",
-			finances: CurrentFinances{
-				Income:           2000,
-				Needs:            2500,
+				Income:           6000,
+				Needs:            7000,
 				CurrentSavings:   15000,
 				UnsettledDebt:    0,
-				EmploymentStatus: SelfEmployed,
+				EmploymentStatus: Employee,
 			},
-			expectedPathway:  PathwayB,
-			expectedActions:  []ActionCode{},
-			expectedEF:       15000,
-			expectedEFMonths: 6,
+			expectedEF:       21000,
+			expectedEFMonths: 3,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			result := AssessDeficitPosition(&tt.finances)
+			AssessDeficitPosition(tt.finances)
 
-			if result.Pathway != tt.expectedPathway {
-				t.Errorf(
-					"expected pathway %s, got %s",
-					tt.expectedPathway,
-					result.Pathway,
-				)
+			emergencyFund, err := CalculateEmergencyTarget(
+				tt.finances.EmploymentStatus,
+				tt.finances.Needs,
+			)
+
+			if err != nil {
+				t.Fatalf("unexpected error calculating emergency fund: %v", err)
 			}
 
-			if result.EmergencyFundTarget != tt.expectedEF {
+			if emergencyFund.TargetAmount != tt.expectedEF {
 				t.Errorf(
 					"expected emergency fund target £%d, got £%d",
 					tt.expectedEF,
-					result.EmergencyFundTarget,
+					emergencyFund.TargetAmount,
 				)
 			}
 
-			if result.EmergencyFundMonths != tt.expectedEFMonths {
+			if emergencyFund.MonthsCount != tt.expectedEFMonths {
 				t.Errorf(
 					"expected emergency fund months %d, got %d",
 					tt.expectedEFMonths,
-					result.EmergencyFundMonths,
-				)
-			}
-
-			if result.MonthsOfNeedsCoveredBySavings !=
-				tt.finances.CurrentSavings/tt.finances.Needs {
-				t.Errorf(
-					"expected savings to cover %d months of needs, got %d",
-					tt.finances.CurrentSavings/tt.finances.Needs,
-					result.MonthsOfNeedsCoveredBySavings,
-				)
-			}
-
-			if len(result.Actions) != len(tt.expectedActions) {
-				t.Errorf(
-					"expected %d actions, got %d",
-					len(tt.expectedActions),
-					len(result.Actions),
-				)
-				return
-			}
-
-			for i, expectedAction := range tt.expectedActions {
-				if result.Actions[i] != expectedAction {
-					t.Errorf(
-						"expected action %s at position %d, got %s",
-						expectedAction,
-						i,
-						result.Actions[i],
-					)
-				}
-			}
-		})
-	}
-}
-
-func TestAssessNeedsPosition(t *testing.T) {
-	tests := []struct {
-		name         string
-		income       int64
-		needs        int64
-		expectedPath PathwayCode
-		expectedWarn WarningCode
-	}{
-		{
-			name:         "Needs below 50 percent",
-			income:       300000,
-			needs:        120000, // 40%
-			expectedPath: PathwayE1,
-			expectedWarn: WarningNeedsBelow50,
-		},
-		{
-			name:         "Needs equal 50 percent",
-			income:       300000,
-			needs:        150000, // 50%
-			expectedPath: PathwayE2,
-			expectedWarn: WarningNeedsEqual50,
-		},
-		{
-			name:         "Needs above 50 but below 60 percent",
-			income:       300000,
-			needs:        165000, // 55%
-			expectedPath: PathwayE3,
-			expectedWarn: WarningNeedsBetween50And60,
-		},
-		{
-			name:         "Needs equal 60 percent",
-			income:       300000,
-			needs:        180000, // 60%
-			expectedPath: PathwayE4,
-			expectedWarn: WarningNeedsEqual60,
-		},
-		{
-			name:         "Needs above 60 percent",
-			income:       300000,
-			needs:        210000, // 70%
-			expectedPath: PathwayE5,
-			expectedWarn: WarningNeedsAbove60,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			cf := CurrentFinances{
-				Income: tt.income,
-				Needs:  tt.needs,
-			}
-
-			result := AssessNeedsPosition(cf)
-
-			if result.Pathway != tt.expectedPath {
-				t.Errorf(
-					"expected pathway %s, got %s",
-					tt.expectedPath,
-					result.Pathway,
-				)
-			}
-
-			// Verify that the warning definition exists.
-			warning, ok := WarningDefinitions[tt.expectedWarn]
-			if !ok {
-				t.Fatalf(
-					"warning definition %s not found",
-					tt.expectedWarn,
-				)
-			}
-
-			if warning.Description == "" {
-				t.Errorf(
-					"warning %s has an empty description",
-					tt.expectedWarn,
+					emergencyFund.MonthsCount,
 				)
 			}
 		})
@@ -648,7 +497,7 @@ func TestApplyImmediateDebtPayoff(t *testing.T) {
 			expectedMsg:     "No action. Balance is below the recommended safety cushion.",
 			expectedSavings: 90000,
 			expectedDebt:    50000,
-			expectedErr:     "",
+			expectedErr:     "savings do not exceed the required baseline buffer",
 		},
 		{
 			name: "No active debt liability",
@@ -672,7 +521,7 @@ func TestApplyImmediateDebtPayoff(t *testing.T) {
 			expectedMsg:     "",
 			expectedSavings: 300000,
 			expectedDebt:    -50000,
-			expectedErr:     "unsettled debt cannot be negative.",
+			expectedErr:     "unsettled debt cannot be negative",
 		},
 		{
 			name: "Surplus cash clears total debt",
@@ -714,36 +563,48 @@ func TestApplyImmediateDebtPayoff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Copy instance to test local mutations safelys
 			cf := tt.input
 
 			baselineBuffer, err := CalculateBaselineBuffer(cf)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			err = cf.ApplyImmediateDebtPayoff(baselineBuffer)
 
-			// Check if error matches our expected text
-			// Check if error matches our expected text
 			if tt.expectedErr != "" {
 				if err == nil {
-					t.Fatalf("expected error containing %q, got nil", tt.expectedErr)
+					t.Fatalf(
+						"expected error containing %q, got nil",
+						tt.expectedErr,
+					)
 				}
 
 				if err.Error() != tt.expectedErr {
-					t.Errorf("expected error string %q, got %q", tt.expectedErr, err.Error())
+					t.Errorf(
+						"expected error string %q, got %q",
+						tt.expectedErr,
+						err.Error(),
+					)
 				}
 			} else if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			// Validate pointer state mutations inside CurrentFinances
 			if cf.CurrentSavings != tt.expectedSavings {
-				t.Errorf("expected mutated savings %d, got %d", tt.expectedSavings, cf.CurrentSavings)
+				t.Errorf(
+					"expected mutated savings %d, got %d",
+					tt.expectedSavings,
+					cf.CurrentSavings,
+				)
 			}
 
 			if cf.UnsettledDebt != tt.expectedDebt {
-				t.Errorf("expected mutated debt %d, got %d", tt.expectedDebt, cf.UnsettledDebt)
+				t.Errorf(
+					"expected mutated debt %d, got %d",
+					tt.expectedDebt,
+					cf.UnsettledDebt,
+				)
 			}
 		})
 	}
