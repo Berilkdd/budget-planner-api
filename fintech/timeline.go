@@ -26,13 +26,15 @@ func CalculateBufferGrowthDuringDebt(
 		// Calculate the best instant access tier for the protected buffer.
 		winningTier := CalculateBestInstantAccessTier(runningBuffer)
 
-		recordTierBreakpoint(
-			&tierBreakpoints,
-			i,
-			runningBuffer,
-			previousTier,
-			winningTier,
-		)
+		if i > 0 {
+			recordTierBreakpoint(
+				&tierBreakpoints,
+				i,
+				runningBuffer,
+				previousTier,
+				winningTier,
+			)
+		}
 
 		previousTier = &winningTier
 
@@ -351,24 +353,12 @@ func CalculateEmergencyFundTimeline(
 	interestGain := int64(0)
 	fees := int64(0)
 
-	var tierBreakpoints []TierBreakpoint
-	var previousTier *InstantAccessTier
-
 	// Step forward month by month until the emergency fund target is reached.
 	for runningSavings < targetAmount {
+		months++
 
 		// Calculate the best instant access tier for the current balance.
 		winningTier := CalculateBestInstantAccessTier(runningSavings)
-
-		recordTierBreakpoint(
-			&tierBreakpoints,
-			months,
-			runningSavings,
-			previousTier,
-			winningTier,
-		)
-
-		previousTier = &winningTier
 
 		// Apply the tier fee.
 		runningSavings -= winningTier.Fee
@@ -382,9 +372,6 @@ func CalculateEmergencyFundTimeline(
 		// Add the monthly saving allocation.
 		runningSavings += monthlySave
 
-		// One month of the forecast has now passed.
-		months++
-
 		// Check if the emergency fund target has been reached.
 		if runningSavings >= targetAmount {
 			surplus := runningSavings - targetAmount
@@ -394,7 +381,6 @@ func CalculateEmergencyFundTimeline(
 				Phase3Surplus:      surplus,
 				Phase3InterestGain: interestGain,
 				Phase3Fees:         fees,
-				TierBreakpoints:    tierBreakpoints,
 			}, nil
 		}
 	}
@@ -404,7 +390,6 @@ func CalculateEmergencyFundTimeline(
 		Phase3Surplus:      0,
 		Phase3InterestGain: interestGain,
 		Phase3Fees:         fees,
-		TierBreakpoints:    tierBreakpoints,
 	}, nil
 }
 
@@ -678,8 +663,6 @@ func GenerateEmergencyFundStrategies(
 		Moderate:    moderate,
 		Aggressive:  aggressive,
 	}
-
-	PrintEmergencyFundStrategies(cf, strategies)
 
 	return strategies, nil
 }
