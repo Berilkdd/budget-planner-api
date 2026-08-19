@@ -67,30 +67,29 @@ func RunPlanner() error {
 			fmt.Println()
 			fmt.Println(
 
-				"Your available savings can cover the required safety buffer,",
+				"  Your available savings can cover the required safety buffer,",
 			)
 
 			fmt.Println()
-			fmt.Println("Baseline buffer: 1 month of essential expenses")
+			fmt.Println("  Baseline buffer: 1 month of essential expenses")
 
 			fmt.Println(
-				"so paying down high-interest debt is prioritised before forecasting.",
+				"  so paying down high-interest debt is prioritised before forecasting.",
 			)
 
 			fmt.Println()
-			fmt.Println("Reviewing available savings for immediate debt repayment...")
+			fmt.Println("  Reviewing available savings for immediate debt repayment...")
 
 			if err := cf.ApplyImmediateDebtPayoff(baselineBuffer); err != nil {
 				return err
 			}
 		}
 
+		if cf.UnsettledDebt == 0 {
+			goto debtFreedomDone
+		}
+
 		// 4.2. Generate Debt Freedom Strategies
-		fmt.Println()
-		fmt.Println("  =================================================================================")
-		fmt.Println("                            DEBT FREEDOM PLAN FORECAST")
-		fmt.Println("  =================================================================================")
-		fmt.Println()
 
 		strategies, err := GenerateDebtFreedomStrategies(
 			cf,
@@ -100,8 +99,6 @@ func RunPlanner() error {
 		if err != nil {
 			return err
 		}
-
-		// DMP assessment
 
 		hasDMPPlan :=
 			strategies.Sustainable.DMPRequired ||
@@ -119,24 +116,29 @@ func RunPlanner() error {
 				for _, reason := range strategies.Sustainable.DMPReasons {
 					fmt.Println("    -", reason)
 				}
+
+				fmt.Println()
 			}
 
 			if strategies.Moderate.DMPRequired {
 				fmt.Println("  Moderate Plan: DMP Required")
 
-				for _, reason := range strategies.Sustainable.DMPReasons {
+				for _, reason := range strategies.Moderate.DMPReasons {
 					fmt.Println("    -", reason)
 				}
+
+				fmt.Println()
 			}
 
 			if strategies.Aggressive.DMPRequired {
 				fmt.Println("  Aggressive Plan: DMP Required")
 
-				for _, reason := range strategies.Sustainable.DMPReasons {
+				for _, reason := range strategies.Aggressive.DMPReasons {
 					fmt.Println("    -", reason)
 				}
-			}
 
+				fmt.Println()
+			}
 		}
 
 		// 4.3. Select Available Plans
@@ -151,9 +153,12 @@ func RunPlanner() error {
 		var selectedDebtPlan DebtFreedomPlan
 
 		selectedPlan, err := SelectPlan(
-			cf,
+			&cf,
 			debtPlans,
-			func(contribution int64) (SelectablePlan, error) {
+
+			func(contribution int64) (SelectablePlan, bool, error) {
+
+				contribution *= 100
 
 				cf.CustomContribution = contribution
 
@@ -163,10 +168,11 @@ func RunPlanner() error {
 					contribution,
 				)
 				if err != nil {
-					return SelectablePlan{}, err
+					return SelectablePlan{}, false, err
 				}
 
 				selectedDebtPlan = customPlan
+				strategies.Custom = customPlan
 
 				var breakpoints []TierBreakpoint
 
@@ -185,17 +191,55 @@ func RunPlanner() error {
 					Allocation:  customPlan.Allocation,
 					Description: "a personalised contribution based on the amount you can afford each month.",
 					Breakpoints: breakpoints,
-				}, nil
+					TotalMonths: totalPlanMonths(customPlan),
+				}, !customPlan.DMPRequired, nil
+			},
+
+			// Custom plan has just been generated.
+			func(customPlan SelectablePlan) {
+				PrintDebtFreedomCustomComparison(
+					cf,
+					strategies,
+					selectedDebtPlan,
+				)
+
+				if strategies.Moderate.DMPRequired {
+					fmt.Println("  Moderate Plan: DMP Required")
+
+					for _, reason := range strategies.Moderate.DMPReasons {
+						fmt.Println("    -", reason)
+					}
+
+					fmt.Println()
+				}
+
+				if strategies.Aggressive.DMPRequired {
+					fmt.Println("  Aggressive Plan: DMP Required")
+
+					for _, reason := range strategies.Aggressive.DMPReasons {
+						fmt.Println("    -", reason)
+					}
+
+					fmt.Println()
+				}
+
+				if selectedDebtPlan.DMPRequired {
+					fmt.Println("  Custom Plan: DMP Required")
+
+					for _, reason := range selectedDebtPlan.DMPReasons {
+						fmt.Println("    -", reason)
+					}
+
+					fmt.Println()
+				}
+
 			},
 		)
-		if err != nil {
-			return err
-		}
 
 		userDecisions.DebtFreedomStrategy =
 			TranslateDebtFreedomSelection(selectedPlan)
 
-			// 4.4. Apply Debt Freedom Plan
+		// 4.4. Apply Debt Freedom Plan
 
 		switch userDecisions.DebtFreedomStrategy {
 
@@ -220,6 +264,8 @@ func RunPlanner() error {
 		}
 	}
 
+debtFreedomDone:
+
 	// 5. Calculate emergency fund target
 
 	emergencyFund, err := CalculateEmergencyTarget(
@@ -235,26 +281,6 @@ func RunPlanner() error {
 	if cf.UnsettledDebt == 0 &&
 		cf.CurrentSavings > emergencyFund.TargetAmount {
 
-		fmt.Println()
-		fmt.Println("EXCESS SAVINGS IDENTIFIED")
-		fmt.Println()
-		fmt.Println(
-			"Your emergency fund is fully covered.",
-		)
-		fmt.Println(
-			"We recommend keeping your emergency fund in an instant-access savings account",
-		)
-		fmt.Println(
-			"so it remains available when needed.",
-		)
-		fmt.Println()
-		fmt.Println(
-			"Any savings above your emergency fund can be considered for",
-		)
-		fmt.Println(
-			"other investment or longer-term financial goals.",
-		)
-
 		excessSavings, err := CalculateExcessSavings(
 			cf,
 			emergencyFund,
@@ -263,16 +289,14 @@ func RunPlanner() error {
 			return err
 		}
 
-		_ = excessSavings
+		PrintExcessSavings(
+			cf,
+			emergencyFund,
+			excessSavings,
+		)
 	}
 
 	// 7. Emergency Fund Forecast
-
-	fmt.Println()
-	fmt.Println("  =================================================================================")
-	fmt.Println("                           EMERGENCY FUND FORECAST")
-	fmt.Println("  =================================================================================")
-	fmt.Println()
 
 	if cf.UnsettledDebt == 0 &&
 		cf.CurrentSavings < emergencyFund.TargetAmount {
@@ -288,6 +312,11 @@ func RunPlanner() error {
 			return err
 		}
 
+		PrintEmergencyFundStrategies(
+			cf,
+			strategies,
+		)
+
 		// 7.2. Select Emergency Fund Plan
 
 		emergencyPlans := BuildEmergencyFundSelectablePlans(strategies)
@@ -300,9 +329,12 @@ func RunPlanner() error {
 		var selectedEmergencyPlan EmergencyFundPlan
 
 		selectedPlan, err := SelectPlan(
-			cf,
+			&cf,
 			emergencyPlans,
-			func(contribution int64) (SelectablePlan, error) {
+
+			func(contribution int64) (SelectablePlan, bool, error) {
+
+				contribution *= 100
 
 				cf.CustomContribution = contribution
 
@@ -312,7 +344,7 @@ func RunPlanner() error {
 					contribution,
 				)
 				if err != nil {
-					return SelectablePlan{}, err
+					return SelectablePlan{}, false, err
 				}
 
 				selectedEmergencyPlan = customPlan
@@ -322,12 +354,18 @@ func RunPlanner() error {
 					Allocation:  customPlan.Allocation,
 					Description: "a personalised contribution based on the amount you can afford each month.",
 					Breakpoints: customPlan.Forecast.TierBreakpoints,
-				}, nil
+				}, true, nil
+			},
+
+			// Custom plan generated.
+			func(customPlan SelectablePlan) {
+				PrintEmergencyFundCustomComparison(
+					cf,
+					strategies,
+					selectedEmergencyPlan,
+				)
 			},
 		)
-		if err != nil {
-			return err
-		}
 
 		userDecisions.EmergencyFundStrategy =
 			TranslateEmergencyFundSelection(selectedPlan)
