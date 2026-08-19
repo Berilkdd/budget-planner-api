@@ -5,6 +5,101 @@ import (
 	"time"
 )
 
+// CALCULATION HELPERS
+
+func bufferRemaining(startingBalance, target int64) int64 {
+	remaining := target - startingBalance
+
+	if remaining < 0 {
+		return 0
+	}
+
+	return remaining
+}
+
+func totalPlanMonths(plan DebtFreedomPlan) int64 {
+	return plan.BufferForecast.Phase1Months +
+		plan.DebtForecast.Phase2Months
+}
+
+func totalContributions(plan DebtFreedomPlan) int64 {
+	return totalPlanMonths(plan)*plan.Allocation.Save -
+		plan.DebtForecast.Phase2Surplus
+}
+
+func totalInterestGain(plan DebtFreedomPlan) int64 {
+	return plan.BufferForecast.Phase1InterestGain +
+		plan.BufferGrowth.Phase2InterestGain
+}
+
+func totalInterestLost(plan DebtFreedomPlan) int64 {
+	return plan.DebtForecast.Phase1InterestLost +
+		plan.DebtForecast.Phase2InterestLost
+}
+
+func totalDebtInterest(plan DebtFreedomPlan) int64 {
+	return totalInterestLost(plan)
+}
+
+func totalPlanFees(plan DebtFreedomPlan) int64 {
+	return plan.BufferForecast.Phase1Fees +
+		plan.BufferGrowth.Phase2Fees
+}
+
+// FORMATTING HELPERS
+
+const (
+	grey  = "\033[90m"
+	reset = "\033[0m"
+)
+
+func formatMoney(amount int64) string {
+	return fmt.Sprintf("£%.2f", float64(amount)/100)
+}
+
+func formatDate(
+	currentDate time.Time,
+	months int64,
+) string {
+	return currentDate.
+		AddDate(0, int(months), 0).
+		Format("Jan 2006")
+}
+
+func formatColumnValue(value string, greyColumn bool) string {
+	padded := fmt.Sprintf("%-13s", value)
+
+	if greyColumn {
+		return grey + padded + reset
+	}
+
+	return padded
+}
+
+func availabilityText(plan DebtFreedomPlan) string {
+	if plan.Available {
+		return "Available"
+	}
+
+	return "UNAVAILABLE"
+}
+
+func availabilityTextEF(plan EmergencyFundPlan) string {
+	if plan.Available {
+		return "Available"
+	}
+
+	return "UNAVAILABLE"
+}
+
+func boolText(value bool) string {
+	if value {
+		return "Yes"
+	}
+
+	return "No"
+}
+
 func PrintCurrentFinances(cf CurrentFinances) {
 	fmt.Println()
 	fmt.Println()
@@ -50,17 +145,51 @@ func PrintCurrentFinances(cf CurrentFinances) {
 
 }
 
+func PrintEmergencyFundTarget(emergencyFund EmergencyFund) {
+
+	fmt.Println(
+		"  Calculating your emergency fund target based on your employment status...",
+	)
+
+	fmt.Println()
+
+	fmt.Printf(
+		"  Emergency fund target calculated: £%.2f (%d months of essential expenses)\n",
+		float64(emergencyFund.TargetAmount)/100,
+		emergencyFund.MonthsCount,
+	)
+
+	fmt.Println()
+	fmt.Println()
+}
+
 func PrintDebtFreedomStrategies(
 	cf CurrentFinances,
 	strategies DebtFreedomStrategies,
 ) {
 	// A plan is grey when DMP is required.
-	sustainableGrey := strategies.Sustainable.DMPRequired
-	moderateGrey := strategies.Moderate.DMPRequired
-	aggressiveGrey := strategies.Aggressive.DMPRequired
+	// A plan is grey when it is unavailable or requires a DMP.
+	sustainableGrey := !strategies.Sustainable.Available ||
+		strategies.Sustainable.DMPRequired
 
-	// Small local helpers so we don't have to pass the grey status
-	// into every single row manually.
+	moderateGrey := !strategies.Moderate.Available ||
+		strategies.Moderate.DMPRequired
+
+	aggressiveGrey := !strategies.Aggressive.Available ||
+		strategies.Aggressive.DMPRequired
+
+	formatPlanValue := func(
+		value string,
+		unavailable bool,
+		grey bool,
+	) string {
+		if unavailable {
+			return formatColumnValue("-", grey)
+		}
+
+		return formatColumnValue(value, grey)
+	}
+
 	printMoney := func(
 		label string,
 		sustainable int64,
@@ -70,16 +199,19 @@ func PrintDebtFreedomStrategies(
 		fmt.Printf(
 			"  | %-30s | %s | %s | %s |\n",
 			label,
-			formatColumnValue(
+			formatPlanValue(
 				formatMoney(sustainable),
+				!strategies.Sustainable.Available,
 				sustainableGrey,
 			),
-			formatColumnValue(
+			formatPlanValue(
 				formatMoney(moderate),
+				!strategies.Moderate.Available,
 				moderateGrey,
 			),
-			formatColumnValue(
+			formatPlanValue(
 				formatMoney(aggressive),
+				!strategies.Aggressive.Available,
 				aggressiveGrey,
 			),
 		)
@@ -94,16 +226,19 @@ func PrintDebtFreedomStrategies(
 		fmt.Printf(
 			"  | %-30s | %s | %s | %s |\n",
 			label,
-			formatColumnValue(
+			formatPlanValue(
 				fmt.Sprintf("%d", sustainable),
+				!strategies.Sustainable.Available,
 				sustainableGrey,
 			),
-			formatColumnValue(
+			formatPlanValue(
 				fmt.Sprintf("%d", moderate),
+				!strategies.Moderate.Available,
 				moderateGrey,
 			),
-			formatColumnValue(
+			formatPlanValue(
 				fmt.Sprintf("%d", aggressive),
+				!strategies.Aggressive.Available,
 				aggressiveGrey,
 			),
 		)
@@ -118,16 +253,19 @@ func PrintDebtFreedomStrategies(
 		fmt.Printf(
 			"  | %-30s | %s | %s | %s |\n",
 			label,
-			formatColumnValue(
+			formatPlanValue(
 				formatDate(cf.CurrentDate, sustainableMonths),
+				!strategies.Sustainable.Available,
 				sustainableGrey,
 			),
-			formatColumnValue(
+			formatPlanValue(
 				formatDate(cf.CurrentDate, moderateMonths),
+				!strategies.Moderate.Available,
 				moderateGrey,
 			),
-			formatColumnValue(
+			formatPlanValue(
 				formatDate(cf.CurrentDate, aggressiveMonths),
+				!strategies.Aggressive.Available,
 				aggressiveGrey,
 			),
 		)
@@ -143,6 +281,12 @@ func PrintDebtFreedomStrategies(
 		)
 	}
 
+	fmt.Println()
+	fmt.Println("  =================================================================================")
+	fmt.Println("                            DEBT FREEDOM PLAN FORECAST")
+	fmt.Println("  =================================================================================")
+	fmt.Println()
+
 	printHeader()
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
@@ -153,7 +297,7 @@ func PrintDebtFreedomStrategies(
 
 	fmt.Printf(
 		"  | %-30s | %s | %s | %s |\n",
-		"Available",
+		"Availability",
 		formatColumnValue(
 			availabilityText(strategies.Sustainable),
 			sustainableGrey,
@@ -185,80 +329,82 @@ func PrintDebtFreedomStrategies(
 		),
 	)
 
-	fmt.Println("  ---------------------------------------------------------------------------------")
+	if cf.CurrentSavings < cf.Needs {
+		fmt.Println("  ---------------------------------------------------------------------------------")
 
-	// -------------------------------------------------------------------
-	// PHASE 1 — BUFFER
-	// -------------------------------------------------------------------
+		// -------------------------------------------------------------------
+		// PHASE 1 — BUFFER
+		// -------------------------------------------------------------------
 
-	fmt.Println("    GENERATE EMERGENCY BUFFER")
+		fmt.Println("    GENERATE EMERGENCY BUFFER")
 
-	fmt.Println("  ---------------------------------------------------------------------------------")
+		fmt.Println("  ---------------------------------------------------------------------------------")
 
-	printMoney(
-		"Starting Balance",
-		cf.CurrentSavings,
-		cf.CurrentSavings,
-		cf.CurrentSavings,
-	)
-
-	printMoney(
-		"Remaining to Buffer Target",
-		bufferRemaining(
+		printMoney(
+			"Starting Balance",
 			cf.CurrentSavings,
+			cf.CurrentSavings,
+			cf.CurrentSavings,
+		)
+
+		printMoney(
+			"Remaining to Buffer Target",
+			bufferRemaining(
+				cf.CurrentSavings,
+				strategies.Sustainable.BaselineBuffer.TargetAmount,
+			),
+			bufferRemaining(
+				cf.CurrentSavings,
+				strategies.Moderate.BaselineBuffer.TargetAmount,
+			),
+			bufferRemaining(
+				cf.CurrentSavings,
+				strategies.Aggressive.BaselineBuffer.TargetAmount,
+			),
+		)
+
+		printMoney(
+			"Buffer Target",
 			strategies.Sustainable.BaselineBuffer.TargetAmount,
-		),
-		bufferRemaining(
-			cf.CurrentSavings,
 			strategies.Moderate.BaselineBuffer.TargetAmount,
-		),
-		bufferRemaining(
-			cf.CurrentSavings,
 			strategies.Aggressive.BaselineBuffer.TargetAmount,
-		),
-	)
+		)
 
-	printMoney(
-		"Buffer Target",
-		strategies.Sustainable.BaselineBuffer.TargetAmount,
-		strategies.Moderate.BaselineBuffer.TargetAmount,
-		strategies.Aggressive.BaselineBuffer.TargetAmount,
-	)
+		printMoney(
+			"Monthly Contribution",
+			strategies.Sustainable.Allocation.Save,
+			strategies.Moderate.Allocation.Save,
+			strategies.Aggressive.Allocation.Save,
+		)
 
-	printMoney(
-		"Monthly Contribution",
-		strategies.Sustainable.Allocation.Save,
-		strategies.Moderate.Allocation.Save,
-		strategies.Aggressive.Allocation.Save,
-	)
+		printMoney(
+			"Interest Gain",
+			strategies.Sustainable.BufferForecast.Phase1InterestGain,
+			strategies.Moderate.BufferForecast.Phase1InterestGain,
+			strategies.Aggressive.BufferForecast.Phase1InterestGain,
+		)
 
-	printMoney(
-		"Interest Gain",
-		strategies.Sustainable.BufferForecast.Phase1InterestGain,
-		strategies.Moderate.BufferForecast.Phase1InterestGain,
-		strategies.Aggressive.BufferForecast.Phase1InterestGain,
-	)
+		printMoney(
+			"Fees",
+			strategies.Sustainable.BufferForecast.Phase1Fees,
+			strategies.Moderate.BufferForecast.Phase1Fees,
+			strategies.Aggressive.BufferForecast.Phase1Fees,
+		)
 
-	printMoney(
-		"Fees",
-		strategies.Sustainable.BufferForecast.Phase1Fees,
-		strategies.Moderate.BufferForecast.Phase1Fees,
-		strategies.Aggressive.BufferForecast.Phase1Fees,
-	)
+		printInt(
+			"Total Months",
+			strategies.Sustainable.BufferForecast.Phase1Months,
+			strategies.Moderate.BufferForecast.Phase1Months,
+			strategies.Aggressive.BufferForecast.Phase1Months,
+		)
 
-	printInt(
-		"Total Months",
-		strategies.Sustainable.BufferForecast.Phase1Months,
-		strategies.Moderate.BufferForecast.Phase1Months,
-		strategies.Aggressive.BufferForecast.Phase1Months,
-	)
-
-	printDate(
-		"Buffer Target Hit Date",
-		strategies.Sustainable.BufferForecast.Phase1Months,
-		strategies.Moderate.BufferForecast.Phase1Months,
-		strategies.Aggressive.BufferForecast.Phase1Months,
-	)
+		printDate(
+			"Buffer Target Hit Date",
+			strategies.Sustainable.BufferForecast.Phase1Months,
+			strategies.Moderate.BufferForecast.Phase1Months,
+			strategies.Aggressive.BufferForecast.Phase1Months,
+		)
+	}
 
 	fmt.Println("  ---------------------------------------------------------------------------------")
 
@@ -413,103 +559,517 @@ func PrintDebtFreedomStrategies(
 	fmt.Println()
 }
 
-// CALCULATION HELPERS
+func PrintDebtFreedomCustomComparison(
+	cf CurrentFinances,
+	strategies DebtFreedomStrategies,
+	customPlan DebtFreedomPlan,
+) {
+	// A plan is grey when it is unavailable or requires a DMP.
+	sustainableGrey := !strategies.Sustainable.Available ||
+		strategies.Sustainable.DMPRequired
 
-func bufferRemaining(startingBalance, target int64) int64 {
-	remaining := target - startingBalance
+	moderateGrey := !strategies.Moderate.Available ||
+		strategies.Moderate.DMPRequired
 
-	if remaining < 0 {
-		return 0
+	aggressiveGrey := !strategies.Aggressive.Available ||
+		strategies.Aggressive.DMPRequired
+
+	customGrey := !customPlan.Available ||
+		customPlan.DMPRequired
+
+	// A plan shows "-" for calculated values only when unavailable.
+	formatPlanValue := func(
+		value string,
+		unavailable bool,
+		grey bool,
+	) string {
+		if unavailable {
+			return formatColumnValue("-", grey)
+		}
+
+		return formatColumnValue(value, grey)
 	}
 
-	return remaining
-}
-
-func totalPlanMonths(plan DebtFreedomPlan) int64 {
-	return plan.BufferForecast.Phase1Months +
-		plan.DebtForecast.Phase2Months
-}
-
-func totalContributions(plan DebtFreedomPlan) int64 {
-	return totalPlanMonths(plan)*plan.Allocation.Save -
-		plan.DebtForecast.Phase2Surplus
-}
-
-func totalInterestGain(plan DebtFreedomPlan) int64 {
-	return plan.BufferForecast.Phase1InterestGain +
-		plan.BufferGrowth.Phase2InterestGain
-}
-
-func totalInterestLost(plan DebtFreedomPlan) int64 {
-	return plan.DebtForecast.Phase1InterestLost +
-		plan.DebtForecast.Phase2InterestLost
-}
-
-func totalDebtInterest(plan DebtFreedomPlan) int64 {
-	return totalInterestLost(plan)
-}
-
-func totalPlanFees(plan DebtFreedomPlan) int64 {
-	return plan.BufferForecast.Phase1Fees +
-		plan.BufferGrowth.Phase2Fees
-}
-
-// FORMATTING HELPERS
-
-const (
-	grey  = "\033[90m"
-	reset = "\033[0m"
-)
-
-func formatMoney(amount int64) string {
-	return fmt.Sprintf("£%.2f", float64(amount)/100)
-}
-
-func formatDate(
-	currentDate time.Time,
-	months int64,
-) string {
-	return currentDate.
-		AddDate(0, int(months), 0).
-		Format("Jan 2006")
-}
-
-func formatColumnValue(value string, greyColumn bool) string {
-	padded := fmt.Sprintf("%-13s", value)
-
-	if greyColumn {
-		return grey + padded + reset
+	printMoney := func(
+		label string,
+		sustainable int64,
+		moderate int64,
+		aggressive int64,
+		custom int64,
+	) {
+		fmt.Printf(
+			"  | %-26s | %s | %s | %s | %s |\n",
+			label,
+			formatPlanValue(
+				fmt.Sprintf("%13s", formatMoney(sustainable)),
+				!strategies.Sustainable.Available,
+				sustainableGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf("%13s", formatMoney(moderate)),
+				!strategies.Moderate.Available,
+				moderateGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf("%13s", formatMoney(aggressive)),
+				!strategies.Aggressive.Available,
+				aggressiveGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf("%13s", formatMoney(custom)),
+				!customPlan.Available,
+				customGrey,
+			),
+		)
 	}
 
-	return padded
-}
-
-func availabilityText(plan DebtFreedomPlan) string {
-	if plan.DMPRequired {
-		return "Not Available"
+	printInt := func(
+		label string,
+		sustainable int64,
+		moderate int64,
+		aggressive int64,
+		custom int64,
+	) {
+		fmt.Printf(
+			"  | %-26s | %s | %s | %s | %s |\n",
+			label,
+			formatPlanValue(
+				fmt.Sprintf("%13d", sustainable),
+				!strategies.Sustainable.Available,
+				sustainableGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf("%13d", moderate),
+				!strategies.Moderate.Available,
+				moderateGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf("%13d", aggressive),
+				!strategies.Aggressive.Available,
+				aggressiveGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf("%13d", custom),
+				!customPlan.Available,
+				customGrey,
+			),
+		)
 	}
 
-	return "Available"
-}
-
-func boolText(value bool) string {
-	if value {
-		return "Yes"
+	printDate := func(
+		label string,
+		sustainableMonths int64,
+		moderateMonths int64,
+		aggressiveMonths int64,
+		customMonths int64,
+	) {
+		fmt.Printf(
+			"  | %-26s | %s | %s | %s | %s |\n",
+			label,
+			formatPlanValue(
+				fmt.Sprintf(
+					"%13s",
+					formatDate(cf.CurrentDate, sustainableMonths),
+				),
+				!strategies.Sustainable.Available,
+				sustainableGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf(
+					"%13s",
+					formatDate(cf.CurrentDate, moderateMonths),
+				),
+				!strategies.Moderate.Available,
+				moderateGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf(
+					"%13s",
+					formatDate(cf.CurrentDate, aggressiveMonths),
+				),
+				!strategies.Aggressive.Available,
+				aggressiveGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf(
+					"%13s",
+					formatDate(cf.CurrentDate, customMonths),
+				),
+				!customPlan.Available,
+				customGrey,
+			),
+		)
 	}
 
-	return "No"
+	printHeader := func() {
+		fmt.Printf(
+			"  | %-26s | %s | %s | %s | %s |\n",
+			"",
+			formatColumnValue(
+				fmt.Sprintf("%13s", "Sustainable"),
+				sustainableGrey,
+			),
+			formatColumnValue(
+				fmt.Sprintf("%13s", "Moderate"),
+				moderateGrey,
+			),
+			formatColumnValue(
+				fmt.Sprintf("%13s", "Aggressive"),
+				aggressiveGrey,
+			),
+			formatColumnValue(
+				fmt.Sprintf("%13s", "Custom"),
+				customGrey,
+			),
+		)
+	}
+
+	fmt.Println()
+	fmt.Println("  ==============================================================================================")
+	fmt.Println("                                DEBT FREEDOM PLAN FORECAST")
+	fmt.Println("  ==============================================================================================")
+	fmt.Println()
+
+	printHeader()
+
+	fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+	fmt.Println("    PLAN STATUS")
+
+	fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+	fmt.Printf(
+		"  | %-26s | %s | %s | %s | %s |\n",
+		"Availability",
+		formatColumnValue(
+			fmt.Sprintf("%13s", availabilityText(strategies.Sustainable)),
+			sustainableGrey,
+		),
+		formatColumnValue(
+			fmt.Sprintf("%13s", availabilityText(strategies.Moderate)),
+			moderateGrey,
+		),
+		formatColumnValue(
+			fmt.Sprintf("%13s", availabilityText(strategies.Aggressive)),
+			aggressiveGrey,
+		),
+		formatColumnValue(
+			fmt.Sprintf("%13s", availabilityText(customPlan)),
+			customGrey,
+		),
+	)
+
+	fmt.Printf(
+		"  | %-26s | %s | %s | %s | %s |\n",
+		"DMP Required",
+		formatColumnValue(
+			fmt.Sprintf(
+				"%13s",
+				boolText(strategies.Sustainable.DMPRequired),
+			),
+			sustainableGrey,
+		),
+		formatColumnValue(
+			fmt.Sprintf(
+				"%13s",
+				boolText(strategies.Moderate.DMPRequired),
+			),
+			moderateGrey,
+		),
+		formatColumnValue(
+			fmt.Sprintf(
+				"%13s",
+				boolText(strategies.Aggressive.DMPRequired),
+			),
+			aggressiveGrey,
+		),
+		formatColumnValue(
+			fmt.Sprintf(
+				"%13s",
+				boolText(customPlan.DMPRequired),
+			),
+			customGrey,
+		),
+	)
+
+	if cf.CurrentSavings < cf.Needs {
+
+		fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+		// -------------------------------------------------------------------
+		// PHASE 1 — BUFFER
+		// -------------------------------------------------------------------
+
+		fmt.Println("    GENERATE EMERGENCY BUFFER")
+
+		fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+		printMoney(
+			"Starting Balance",
+			cf.CurrentSavings,
+			cf.CurrentSavings,
+			cf.CurrentSavings,
+			cf.CurrentSavings,
+		)
+
+		printMoney(
+			"Remaining to Buffer Target",
+			bufferRemaining(
+				cf.CurrentSavings,
+				strategies.Sustainable.BaselineBuffer.TargetAmount,
+			),
+			bufferRemaining(
+				cf.CurrentSavings,
+				strategies.Moderate.BaselineBuffer.TargetAmount,
+			),
+			bufferRemaining(
+				cf.CurrentSavings,
+				strategies.Aggressive.BaselineBuffer.TargetAmount,
+			),
+			bufferRemaining(
+				cf.CurrentSavings,
+				customPlan.BaselineBuffer.TargetAmount,
+			),
+		)
+
+		printMoney(
+			"Buffer Target",
+			strategies.Sustainable.BaselineBuffer.TargetAmount,
+			strategies.Moderate.BaselineBuffer.TargetAmount,
+			strategies.Aggressive.BaselineBuffer.TargetAmount,
+			customPlan.BaselineBuffer.TargetAmount,
+		)
+
+		printMoney(
+			"Monthly Contribution",
+			strategies.Sustainable.Allocation.Save,
+			strategies.Moderate.Allocation.Save,
+			strategies.Aggressive.Allocation.Save,
+			customPlan.Allocation.Save,
+		)
+
+		printMoney(
+			"Interest Gain",
+			strategies.Sustainable.BufferForecast.Phase1InterestGain,
+			strategies.Moderate.BufferForecast.Phase1InterestGain,
+			strategies.Aggressive.BufferForecast.Phase1InterestGain,
+			customPlan.BufferForecast.Phase1InterestGain,
+		)
+
+		printMoney(
+			"Fees",
+			strategies.Sustainable.BufferForecast.Phase1Fees,
+			strategies.Moderate.BufferForecast.Phase1Fees,
+			strategies.Aggressive.BufferForecast.Phase1Fees,
+			customPlan.BufferForecast.Phase1Fees,
+		)
+
+		printInt(
+			"Total Months",
+			strategies.Sustainable.BufferForecast.Phase1Months,
+			strategies.Moderate.BufferForecast.Phase1Months,
+			strategies.Aggressive.BufferForecast.Phase1Months,
+			customPlan.BufferForecast.Phase1Months,
+		)
+
+		printDate(
+			"Buffer Target Hit Date",
+			strategies.Sustainable.BufferForecast.Phase1Months,
+			strategies.Moderate.BufferForecast.Phase1Months,
+			strategies.Aggressive.BufferForecast.Phase1Months,
+			customPlan.BufferForecast.Phase1Months,
+		)
+	}
+
+	fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+	fmt.Println("    PAY DEBT OFF")
+
+	fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+	printMoney(
+		"Starting Debt",
+		cf.UnsettledDebt,
+		cf.UnsettledDebt,
+		cf.UnsettledDebt,
+		cf.UnsettledDebt,
+	)
+
+	printMoney(
+		"Monthly Contribution",
+		strategies.Sustainable.Allocation.Save,
+		strategies.Moderate.Allocation.Save,
+		strategies.Aggressive.Allocation.Save,
+		customPlan.Allocation.Save,
+	)
+
+	printMoney(
+		"Interest Lost",
+		totalDebtInterest(strategies.Sustainable),
+		totalDebtInterest(strategies.Moderate),
+		totalDebtInterest(strategies.Aggressive),
+		totalDebtInterest(customPlan),
+	)
+
+	printInt(
+		"Total Months",
+		strategies.Sustainable.DebtForecast.Phase2Months,
+		strategies.Moderate.DebtForecast.Phase2Months,
+		strategies.Aggressive.DebtForecast.Phase2Months,
+		customPlan.DebtForecast.Phase2Months,
+	)
+
+	printDate(
+		"Debt End Date",
+		totalPlanMonths(strategies.Sustainable),
+		totalPlanMonths(strategies.Moderate),
+		totalPlanMonths(strategies.Aggressive),
+		totalPlanMonths(customPlan),
+	)
+
+	printMoney(
+		"Available Surplus",
+		strategies.Sustainable.DebtForecast.Phase2Surplus,
+		strategies.Moderate.DebtForecast.Phase2Surplus,
+		strategies.Aggressive.DebtForecast.Phase2Surplus,
+		customPlan.DebtForecast.Phase2Surplus,
+	)
+
+	fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+	fmt.Println("    PROTECTED BUFFER")
+
+	fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+	printMoney(
+		"Starting Balance",
+		strategies.Sustainable.BaselineBuffer.TargetAmount,
+		strategies.Moderate.BaselineBuffer.TargetAmount,
+		strategies.Aggressive.BaselineBuffer.TargetAmount,
+		customPlan.BaselineBuffer.TargetAmount,
+	)
+
+	printMoney(
+		"Interest Gain",
+		strategies.Sustainable.BufferGrowth.Phase2InterestGain,
+		strategies.Moderate.BufferGrowth.Phase2InterestGain,
+		strategies.Aggressive.BufferGrowth.Phase2InterestGain,
+		customPlan.BufferGrowth.Phase2InterestGain,
+	)
+
+	printMoney(
+		"Fees",
+		strategies.Sustainable.BufferGrowth.Phase2Fees,
+		strategies.Moderate.BufferGrowth.Phase2Fees,
+		strategies.Aggressive.BufferGrowth.Phase2Fees,
+		customPlan.BufferGrowth.Phase2Fees,
+	)
+
+	fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+	fmt.Println()
+	fmt.Println()
+
+	// -------------------------------------------------------------------
+	// PLAN SUMMARY
+	// -------------------------------------------------------------------
+
+	fmt.Println("  ==============================================================================================")
+	fmt.Println("                                       PLAN SUMMARY")
+	fmt.Println("  ==============================================================================================")
+	fmt.Println()
+
+	printHeader()
+
+	fmt.Println("  ----------------------------------------------------------------------------------------------")
+
+	printInt(
+		"Total Months",
+		totalPlanMonths(strategies.Sustainable),
+		totalPlanMonths(strategies.Moderate),
+		totalPlanMonths(strategies.Aggressive),
+		totalPlanMonths(customPlan),
+	)
+
+	printDate(
+		"End Date",
+		totalPlanMonths(strategies.Sustainable),
+		totalPlanMonths(strategies.Moderate),
+		totalPlanMonths(strategies.Aggressive),
+		totalPlanMonths(customPlan),
+	)
+
+	printMoney(
+		"Total Contributions",
+		totalContributions(strategies.Sustainable),
+		totalContributions(strategies.Moderate),
+		totalContributions(strategies.Aggressive),
+		totalContributions(customPlan),
+	)
+
+	printMoney(
+		"Total Interest Gain",
+		totalInterestGain(strategies.Sustainable),
+		totalInterestGain(strategies.Moderate),
+		totalInterestGain(strategies.Aggressive),
+		totalInterestGain(customPlan),
+	)
+
+	printMoney(
+		"Total Interest Lost",
+		totalInterestLost(strategies.Sustainable),
+		totalInterestLost(strategies.Moderate),
+		totalInterestLost(strategies.Aggressive),
+		totalInterestLost(customPlan),
+	)
+
+	printMoney(
+		"Total Fees",
+		totalPlanFees(strategies.Sustainable),
+		totalPlanFees(strategies.Moderate),
+		totalPlanFees(strategies.Aggressive),
+		totalPlanFees(customPlan),
+	)
+
+	printMoney(
+		"Monthly Contribution",
+		strategies.Sustainable.Allocation.Save,
+		strategies.Moderate.Allocation.Save,
+		strategies.Aggressive.Allocation.Save,
+		customPlan.Allocation.Save,
+	)
+
+	printMoney(
+		"Monthly Wants",
+		strategies.Sustainable.Allocation.Wants,
+		strategies.Moderate.Allocation.Wants,
+		strategies.Aggressive.Allocation.Wants,
+		customPlan.Allocation.Wants,
+	)
+
+	fmt.Println("  ----------------------------------------------------------------------------------------------")
+	fmt.Println()
 }
 
 func PrintEmergencyFundStrategies(
 	cf CurrentFinances,
 	strategies EmergencyFundStrategies,
 ) {
-	printValue := func(value string, available bool) string {
-		if !available {
-			return "Not Available"
-		}
 
-		return value
+	// A plan is grey when it is unavailable.
+	sustainableGrey := !strategies.Sustainable.Available
+	moderateGrey := !strategies.Moderate.Available
+	aggressiveGrey := !strategies.Aggressive.Available
+
+	formatPlanValue := func(
+		value string,
+		unavailable bool,
+		grey bool,
+	) string {
+		if unavailable {
+			return formatColumnValue("-", grey)
+		}
+		return formatColumnValue(value, grey)
 	}
 
 	printMoney := func(
@@ -521,26 +1081,20 @@ func PrintEmergencyFundStrategies(
 		fmt.Printf(
 			"  | %-30s | %s | %s | %s |\n",
 			label,
-			formatColumnValue(
-				printValue(
-					formatMoney(sustainable),
-					strategies.Sustainable.Available,
-				),
+			formatPlanValue(
+				formatMoney(sustainable),
 				!strategies.Sustainable.Available,
+				sustainableGrey,
 			),
-			formatColumnValue(
-				printValue(
-					formatMoney(moderate),
-					strategies.Moderate.Available,
-				),
+			formatPlanValue(
+				formatMoney(moderate),
 				!strategies.Moderate.Available,
+				moderateGrey,
 			),
-			formatColumnValue(
-				printValue(
-					formatMoney(aggressive),
-					strategies.Aggressive.Available,
-				),
+			formatPlanValue(
+				formatMoney(aggressive),
 				!strategies.Aggressive.Available,
+				aggressiveGrey,
 			),
 		)
 	}
@@ -554,26 +1108,20 @@ func PrintEmergencyFundStrategies(
 		fmt.Printf(
 			"  | %-30s | %s | %s | %s |\n",
 			label,
-			formatColumnValue(
-				printValue(
-					fmt.Sprintf("%d", sustainable),
-					strategies.Sustainable.Available,
-				),
+			formatPlanValue(
+				fmt.Sprintf("%d", sustainable),
 				!strategies.Sustainable.Available,
+				sustainableGrey,
 			),
-			formatColumnValue(
-				printValue(
-					fmt.Sprintf("%d", moderate),
-					strategies.Moderate.Available,
-				),
+			formatPlanValue(
+				fmt.Sprintf("%d", moderate),
 				!strategies.Moderate.Available,
+				moderateGrey,
 			),
-			formatColumnValue(
-				printValue(
-					fmt.Sprintf("%d", aggressive),
-					strategies.Aggressive.Available,
-				),
+			formatPlanValue(
+				fmt.Sprintf("%d", aggressive),
 				!strategies.Aggressive.Available,
+				aggressiveGrey,
 			),
 		)
 	}
@@ -587,26 +1135,20 @@ func PrintEmergencyFundStrategies(
 		fmt.Printf(
 			"  | %-30s | %s | %s | %s |\n",
 			label,
-			formatColumnValue(
-				printValue(
-					formatDate(cf.CurrentDate, sustainableMonths),
-					strategies.Sustainable.Available,
-				),
+			formatPlanValue(
+				formatDate(cf.CurrentDate, sustainableMonths),
 				!strategies.Sustainable.Available,
+				sustainableGrey,
 			),
-			formatColumnValue(
-				printValue(
-					formatDate(cf.CurrentDate, moderateMonths),
-					strategies.Moderate.Available,
-				),
+			formatPlanValue(
+				formatDate(cf.CurrentDate, moderateMonths),
 				!strategies.Moderate.Available,
+				moderateGrey,
 			),
-			formatColumnValue(
-				printValue(
-					formatDate(cf.CurrentDate, aggressiveMonths),
-					strategies.Aggressive.Available,
-				),
+			formatPlanValue(
+				formatDate(cf.CurrentDate, aggressiveMonths),
 				!strategies.Aggressive.Available,
+				aggressiveGrey,
 			),
 		)
 	}
@@ -617,24 +1159,47 @@ func PrintEmergencyFundStrategies(
 			"",
 			formatColumnValue(
 				"Sustainable",
-				!strategies.Sustainable.Available,
+				sustainableGrey,
 			),
 			formatColumnValue(
 				"Moderate",
-				!strategies.Moderate.Available,
+				moderateGrey,
 			),
 			formatColumnValue(
 				"Aggressive",
-				!strategies.Aggressive.Available,
+				aggressiveGrey,
 			),
 		)
 	}
 
+	fmt.Println()
+	fmt.Println("  =================================================================================")
+	fmt.Println("                            EMERGENCY FUND PLAN FORECAST")
+	fmt.Println("  =================================================================================")
+	fmt.Println()
+
 	printHeader()
 
-	fmt.Println("  ---------------------------------------------------------------------------------")
-	fmt.Println("    GENERATE EMERGENCY FUND")
-	fmt.Println("  ---------------------------------------------------------------------------------")
+	fmt.Println("  ----------------------------------------------------------------------------------")
+
+	fmt.Printf(
+		"  | %-30s | %s | %s | %s |\n",
+		"PLAN STATUS",
+		formatColumnValue(
+			availabilityTextEF(strategies.Sustainable),
+			sustainableGrey,
+		),
+		formatColumnValue(
+			availabilityTextEF(strategies.Moderate),
+			moderateGrey,
+		),
+		formatColumnValue(
+			availabilityTextEF(strategies.Aggressive),
+			aggressiveGrey,
+		),
+	)
+
+	fmt.Println("  ----------------------------------------------------------------------------------")
 
 	printMoney(
 		"Starting Savings",
@@ -713,6 +1278,269 @@ func PrintEmergencyFundStrategies(
 	fmt.Println()
 }
 
+func PrintEmergencyFundCustomComparison(
+	cf CurrentFinances,
+	strategies EmergencyFundStrategies,
+	customPlan EmergencyFundPlan,
+) {
+
+	// A plan is grey when it is unavailable.
+	sustainableGrey := !strategies.Sustainable.Available
+	moderateGrey := !strategies.Moderate.Available
+	aggressiveGrey := !strategies.Aggressive.Available
+	customGrey := !customPlan.Available
+
+	formatPlanValue := func(
+		value string,
+		unavailable bool,
+		grey bool,
+	) string {
+		if unavailable {
+			return formatColumnValue("-", grey)
+		}
+
+		return formatColumnValue(value, grey)
+	}
+
+	printMoney := func(
+		label string,
+		sustainable int64,
+		moderate int64,
+		aggressive int64,
+		custom int64,
+	) {
+		fmt.Printf(
+			"  | %-26s | %13s | %13s | %13s | %13s |\n",
+			label,
+			formatPlanValue(
+				formatMoney(sustainable),
+				!strategies.Sustainable.Available,
+				sustainableGrey,
+			),
+			formatPlanValue(
+				formatMoney(moderate),
+				!strategies.Moderate.Available,
+				moderateGrey,
+			),
+			formatPlanValue(
+				formatMoney(aggressive),
+				!strategies.Aggressive.Available,
+				aggressiveGrey,
+			),
+			formatPlanValue(
+				formatMoney(custom),
+				!customPlan.Available,
+				customGrey,
+			),
+		)
+	}
+
+	printInt := func(
+		label string,
+		sustainable int64,
+		moderate int64,
+		aggressive int64,
+		custom int64,
+	) {
+		fmt.Printf(
+			"  | %-26s | %13s | %13s | %13s | %13s |\n",
+			label,
+			formatPlanValue(
+				fmt.Sprintf("%d", sustainable),
+				!strategies.Sustainable.Available,
+				sustainableGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf("%d", moderate),
+				!strategies.Moderate.Available,
+				moderateGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf("%d", aggressive),
+				!strategies.Aggressive.Available,
+				aggressiveGrey,
+			),
+			formatPlanValue(
+				fmt.Sprintf("%d", custom),
+				!customPlan.Available,
+				customGrey,
+			),
+		)
+	}
+
+	printDate := func(
+		label string,
+		sustainableMonths int64,
+		moderateMonths int64,
+		aggressiveMonths int64,
+		customMonths int64,
+	) {
+		fmt.Printf(
+			"  | %-26s | %13s | %13s | %13s | %13s |\n",
+			label,
+			formatPlanValue(
+				formatDate(cf.CurrentDate, sustainableMonths),
+				!strategies.Sustainable.Available,
+				sustainableGrey,
+			),
+			formatPlanValue(
+				formatDate(cf.CurrentDate, moderateMonths),
+				!strategies.Moderate.Available,
+				moderateGrey,
+			),
+			formatPlanValue(
+				formatDate(cf.CurrentDate, aggressiveMonths),
+				!strategies.Aggressive.Available,
+				aggressiveGrey,
+			),
+			formatPlanValue(
+				formatDate(cf.CurrentDate, customMonths),
+				!customPlan.Available,
+				customGrey,
+			),
+		)
+	}
+
+	fmt.Println()
+	fmt.Println("  ================================================================================================")
+	fmt.Println("                                  EMERGENCY FUND PLAN FORECAST")
+	fmt.Println("  ================================================================================================")
+	fmt.Println()
+
+	fmt.Printf(
+		"  | %-26s | %13s | %13s | %13s | %13s |\n",
+		"",
+		formatColumnValue(
+			"Sustainable",
+			sustainableGrey,
+		),
+		formatColumnValue(
+			"Moderate",
+			moderateGrey,
+		),
+		formatColumnValue(
+			"Aggressive",
+			aggressiveGrey,
+		),
+		formatColumnValue(
+			"Custom",
+			customGrey,
+		),
+	)
+
+	fmt.Println("  -----------------------------------------------------------------------------------------------")
+
+	fmt.Printf(
+		"  | %-26s | %13s | %13s | %13s | %13s |\n",
+		"PLAN STATUS",
+		formatColumnValue(
+			availabilityTextEF(strategies.Sustainable),
+			sustainableGrey,
+		),
+		formatColumnValue(
+			availabilityTextEF(strategies.Moderate),
+			moderateGrey,
+		),
+		formatColumnValue(
+			availabilityTextEF(strategies.Aggressive),
+			aggressiveGrey,
+		),
+		formatColumnValue(
+			availabilityTextEF(customPlan),
+			customGrey,
+		),
+	)
+
+	fmt.Println("  -----------------------------------------------------------------------------------------------")
+
+	printMoney(
+		"Starting Savings",
+		cf.CurrentSavings,
+		cf.CurrentSavings,
+		cf.CurrentSavings,
+		cf.CurrentSavings,
+	)
+
+	printMoney(
+		"Target Amount",
+		strategies.Sustainable.TargetAmount,
+		strategies.Moderate.TargetAmount,
+		strategies.Aggressive.TargetAmount,
+		customPlan.TargetAmount,
+	)
+
+	printInt(
+		"Total Months",
+		strategies.Sustainable.Forecast.Phase3Months,
+		strategies.Moderate.Forecast.Phase3Months,
+		strategies.Aggressive.Forecast.Phase3Months,
+		customPlan.Forecast.Phase3Months,
+	)
+
+	printDate(
+		"EF Target Hit Date",
+		strategies.Sustainable.Forecast.Phase3Months,
+		strategies.Moderate.Forecast.Phase3Months,
+		strategies.Aggressive.Forecast.Phase3Months,
+		customPlan.Forecast.Phase3Months,
+	)
+
+	printMoney(
+		"Total Contributions",
+		strategies.Sustainable.Forecast.Phase3Months*
+			strategies.Sustainable.Allocation.Save,
+		strategies.Moderate.Forecast.Phase3Months*
+			strategies.Moderate.Allocation.Save,
+		strategies.Aggressive.Forecast.Phase3Months*
+			strategies.Aggressive.Allocation.Save,
+		customPlan.Forecast.Phase3Months*
+			customPlan.Allocation.Save,
+	)
+
+	printMoney(
+		"Available Surplus",
+		strategies.Sustainable.Forecast.Phase3Surplus,
+		strategies.Moderate.Forecast.Phase3Surplus,
+		strategies.Aggressive.Forecast.Phase3Surplus,
+		customPlan.Forecast.Phase3Surplus,
+	)
+
+	printMoney(
+		"Total Interest Gain",
+		strategies.Sustainable.Forecast.Phase3InterestGain,
+		strategies.Moderate.Forecast.Phase3InterestGain,
+		strategies.Aggressive.Forecast.Phase3InterestGain,
+		customPlan.Forecast.Phase3InterestGain,
+	)
+
+	printMoney(
+		"Total Fees",
+		strategies.Sustainable.Forecast.Phase3Fees,
+		strategies.Moderate.Forecast.Phase3Fees,
+		strategies.Aggressive.Forecast.Phase3Fees,
+		customPlan.Forecast.Phase3Fees,
+	)
+
+	printMoney(
+		"Monthly Contribution",
+		strategies.Sustainable.Allocation.Save,
+		strategies.Moderate.Allocation.Save,
+		strategies.Aggressive.Allocation.Save,
+		customPlan.Allocation.Save,
+	)
+
+	printMoney(
+		"Monthly Wants",
+		strategies.Sustainable.Allocation.Wants,
+		strategies.Moderate.Allocation.Wants,
+		strategies.Aggressive.Allocation.Wants,
+		customPlan.Allocation.Wants,
+	)
+
+	fmt.Println("  -----------------------------------------------------------------------------------------------")
+	fmt.Println()
+}
+
 func printTierOptimisation(
 	cf CurrentFinances,
 	breakpoints []TierBreakpoint,
@@ -779,6 +1607,7 @@ type SelectablePlan struct {
 	WantsPercent int64
 	Description  string
 	Breakpoints  []TierBreakpoint
+	TotalMonths  int64
 }
 
 func BuildDebtFreedomSelectablePlans(
@@ -844,6 +1673,7 @@ func BuildDebtFreedomSelectablePlans(
 			WantsPercent: item.wantsPercent,
 			Description:  item.description,
 			Breakpoints:  breakpoints,
+			TotalMonths:  totalPlanMonths(item.plan),
 		})
 	}
 
@@ -906,35 +1736,36 @@ func PrintAvailablePlans(
 	cf CurrentFinances,
 	plans []SelectablePlan,
 ) {
-	fmt.Println()
+	if len(plans) > 0 {
+		fmt.Println()
 
-	fmt.Println(
-		"  The figures in the table below include the savings optimisation",
-	)
-	fmt.Println(
-		"  calculations described here.",
-	)
-	fmt.Println()
+		fmt.Println(
+			"  The figures in the table below include the savings optimisation",
+		)
+		fmt.Println(
+			"  calculations described here.",
+		)
+		fmt.Println()
 
-	fmt.Println(
-		"  To optimise the protected buffer, we compare available",
-	)
-	fmt.Println(
-		"  instant-access savings tiers each month as the balance changes.",
-	)
-	fmt.Println()
+		fmt.Println(
+			"  To optimise the protected buffer, we compare available",
+		)
+		fmt.Println(
+			"  instant-access savings tiers each month as the balance changes.",
+		)
+		fmt.Println()
 
-	fmt.Println("  The aim is not to increase your costs.")
-	fmt.Println()
+		fmt.Println("  The aim is not to increase your costs.")
+		fmt.Println()
 
-	fmt.Println(
-		"  We only consider an alternative account when the",
-	)
-	fmt.Println(
-		"  additional interest is expected to outweigh its fees.",
-	)
-	fmt.Println()
-
+		fmt.Println(
+			"  We only consider an alternative account when the",
+		)
+		fmt.Println(
+			"  additional interest is expected to outweigh its fees.",
+		)
+		fmt.Println()
+	}
 	planNumber := 1
 
 	for _, item := range plans {
@@ -968,6 +1799,15 @@ func PrintAvailablePlans(
 			float64(item.Allocation.Save)/100,
 		)
 
+		if item.Allocation.Save < 10000 && item.TotalMonths >= 6 {
+			fmt.Println()
+			fmt.Println("     Note:")
+			fmt.Println("       Your discretionary money is below £100 per month and")
+			fmt.Println("       your debt repayment period is 6 months or longer.")
+			fmt.Println("       You may wish to consider whether a Debt Management")
+			fmt.Println("       Plan could be appropriate for you.")
+		}
+
 		fmt.Println()
 
 		printTierOptimisation(
@@ -987,4 +1827,71 @@ func PrintAvailablePlans(
 		fmt.Println("  to create a Custom Plan.")
 		fmt.Println()
 	}
+}
+
+func PrintExcessSavings(
+	cf CurrentFinances,
+	emergencyFund EmergencyFund,
+	excessSavings ExcessSavingsForecast,
+) {
+
+	fmt.Println()
+	fmt.Println("  =================================================================================")
+	fmt.Println("                            EXCESS SAVINGS IDENTIFIED")
+	fmt.Println("  =================================================================================")
+	fmt.Println()
+
+	PrintEmergencyFundTarget(emergencyFund)
+
+	fmt.Println(
+		"Your emergency fund is fully covered.",
+	)
+
+	fmt.Println()
+	fmt.Printf(
+		"  You currently have £%.2f in savings.\n",
+		float64(cf.CurrentSavings)/100,
+	)
+
+	fmt.Printf(
+		"  £%.2f is needed to fully cover your emergency fund.\n",
+		float64(excessSavings.EmergencyFundAmount)/100,
+	)
+
+	fmt.Printf(
+		"  This leaves £%.2f available above your emergency fund target.\n",
+		float64(excessSavings.InvestmentAmount)/100,
+	)
+
+	fmt.Println()
+	fmt.Println(
+		"  We recommend keeping your emergency fund in an instant-access savings account",
+	)
+	fmt.Println(
+		"  so it remains available when needed.",
+	)
+
+	fmt.Println()
+	fmt.Printf(
+		"  Based on your emergency fund balance, the most advantageous available tier is %s.\n",
+		excessSavings.RecommendedTier.Name,
+	)
+
+	fmt.Printf(
+		"  AER: %.2f%%\n",
+		float64(excessSavings.RecommendedTier.AER)/100,
+	)
+
+	fmt.Printf(
+		"  Monthly fee: £%.2f\n",
+		float64(excessSavings.RecommendedTier.Fee)/100,
+	)
+
+	fmt.Println()
+	fmt.Println(
+		"  The remaining excess could be considered for investments",
+	)
+	fmt.Println(
+		"  or other longer-term financial goals, depending on your circumstances.",
+	)
 }
