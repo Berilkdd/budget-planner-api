@@ -69,6 +69,8 @@ func AssessDeficitPosition(cf CurrentFinances) {
 		cf.Needs,
 	)
 
+	PrintEmergencyFundTarget(emergencyFund)
+
 	if err != nil {
 		return
 	}
