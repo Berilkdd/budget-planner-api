@@ -183,12 +183,32 @@ func TranslateEmergencyFundSelection(
 
 // Handles plan selection, custom contribution input, and regeneration of the custom plan forecast
 func SelectPlan(
-	cf CurrentFinances,
+	cf *CurrentFinances,
 	plans []SelectablePlan,
-	createCustomPlan func(int64) (SelectablePlan, error),
+	createCustomPlan func(int64) (SelectablePlan, bool, error),
+	onCustomCreated func(SelectablePlan),
 ) (SelectablePlan, error) {
 
 	customCreated := false
+
+	handleCustomError := func(err error) bool {
+		if errors.Is(err, ErrContributionExceedsAvailableIncome) {
+			fmt.Println()
+			fmt.Println("  The contribution you entered is higher than the amount available after your needs.")
+			fmt.Println("  Please enter a lower monthly contribution.")
+			fmt.Println()
+			return true
+		}
+
+		if errors.Is(err, ErrZeroSavingAllocation) {
+			fmt.Println()
+			fmt.Println("  Please enter a contribution greater than £0.")
+			fmt.Println()
+			return true
+		}
+
+		return false
+	}
 
 	for {
 		fmt.Println()
@@ -205,15 +225,58 @@ func SelectPlan(
 			fmt.Print("  Monthly contribution: £")
 			fmt.Scan(&contribution)
 
-			customPlan, err := createCustomPlan(contribution)
+			customPlan, selectable, err := createCustomPlan(contribution)
 			if err != nil {
+				if handleCustomError(err) {
+					continue
+				}
+
 				return SelectablePlan{}, err
 			}
 
-			plans = append(plans, customPlan)
 			customCreated = true
 
-			PrintAvailablePlans(cf, plans)
+			onCustomCreated(customPlan)
+
+			if selectable {
+				plans = append(plans, customPlan)
+			}
+
+			PrintAvailablePlans(*cf, plans)
+
+			continue
+		}
+
+		// Custom plan selected but still no plans are available.
+
+		if len(plans) == 0 && customCreated {
+			fmt.Println()
+			fmt.Println("  Your current budget does not support any of the available plans.")
+			fmt.Println()
+			fmt.Println("  Please enter another monthly contribution.")
+			fmt.Println()
+
+			var contribution int64
+
+			fmt.Print("  Monthly contribution: £")
+			fmt.Scan(&contribution)
+
+			customPlan, selectable, err := createCustomPlan(contribution)
+			if err != nil {
+				if handleCustomError(err) {
+					continue
+				}
+
+				return SelectablePlan{}, err
+			}
+
+			onCustomCreated(customPlan)
+
+			if selectable {
+				plans = append(plans, customPlan)
+			}
+
+			PrintAvailablePlans(*cf, plans)
 
 			continue
 		}
@@ -247,40 +310,81 @@ func SelectPlan(
 
 		// Create the first custom plan.
 		if !customCreated && choice == customOption {
-			var contribution int64
 
-			fmt.Print("  How much can you contribute monthly? £")
-			fmt.Scan(&contribution)
+			for {
+				var contribution int64
 
-			customPlan, err := createCustomPlan(contribution)
-			if err != nil {
-				return SelectablePlan{}, err
+				fmt.Print("  How much can you contribute monthly? £")
+				fmt.Scan(&contribution)
+
+				customPlan, selectable, err := createCustomPlan(contribution)
+				if err != nil {
+					if handleCustomError(err) {
+						continue
+					}
+
+					return SelectablePlan{}, err
+				}
+
+				customCreated = true
+
+				onCustomCreated(customPlan)
+
+				if selectable {
+					plans = append(plans, customPlan)
+				}
+
+				PrintAvailablePlans(*cf, plans)
+
+				break
 			}
-
-			plans = append(plans, customPlan)
-			customCreated = true
-
-			PrintAvailablePlans(cf, plans)
 
 			continue
 		}
-
 		// Generate another custom plan.
 		if customCreated && choice == customOption {
-			var contribution int64
 
-			fmt.Print("  How much can you contribute monthly? £")
-			fmt.Scan(&contribution)
+			for {
+				var contribution int64
 
-			customPlan, err := createCustomPlan(contribution)
-			if err != nil {
-				return SelectablePlan{}, err
+				fmt.Print("  How much can you contribute monthly? £")
+				fmt.Scan(&contribution)
+
+				customPlan, selectable, err := createCustomPlan(contribution)
+				if err != nil {
+					if handleCustomError(err) {
+						continue
+					}
+
+					return SelectablePlan{}, err
+				}
+
+				onCustomCreated(customPlan)
+
+				if selectable {
+
+					customIndex := -1
+
+					for i, plan := range plans {
+						if plan.Name == "Custom Plan" {
+							customIndex = i
+							break
+						}
+					}
+
+					if customIndex >= 0 {
+						// Replace the existing Custom Plan.
+						plans[customIndex] = customPlan
+					} else {
+						// No Custom Plan exists yet.
+						plans = append(plans, customPlan)
+					}
+				}
+
+				PrintAvailablePlans(*cf, plans)
+
+				break
 			}
-
-			// Replace the existing custom plan.
-			plans[len(plans)-1] = customPlan
-
-			PrintAvailablePlans(cf, plans)
 
 			continue
 		}
@@ -288,5 +392,6 @@ func SelectPlan(
 		return SelectablePlan{}, errors.New(
 			"invalid plan selection",
 		)
+
 	}
 }
