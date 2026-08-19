@@ -50,7 +50,7 @@ func recordTierBreakpoint(
 	previousTier *InstantAccessTier,
 	currentTier InstantAccessTier,
 ) {
-	if previousTier == nil || previousTier.Name != currentTier.Name {
+	if previousTier != nil && previousTier.Name != currentTier.Name {
 		*breakpoints = append(
 			*breakpoints,
 			TierBreakpoint{
