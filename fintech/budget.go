@@ -1,9 +1,5 @@
 package fintech
 
-import (
-	"fmt"
-)
-
 type Allocation struct {
 	Needs int64
 	Wants int64
@@ -87,17 +83,9 @@ func GenerateCustomAllocation(cf CurrentFinances, customContribution int64) (Bud
 		return BudgetStrategy{}, ErrContributionExceedsAvailableIncome
 	}
 
-	wants := cf.Income - cf.Needs - customContribution
-
-	fmt.Printf(
-		"[CALCULATED] Custom allocation: Needs £%.2f | Wants £%.2f | Contribution £%.2f\n",
-		float64(cf.Needs)/100,
-		float64(wants)/100,
-		float64(customContribution)/100,
-	)
-
 	return BudgetStrategy{
-		Name: "Custom Plan",
+		Name:      "Custom Plan",
+		Available: true,
 		Allocations: Allocation{
 			Needs: cf.Needs,
 			Wants: cf.Income - cf.Needs - customContribution,
