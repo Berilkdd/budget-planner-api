@@ -42,22 +42,16 @@ func RunPlanner() error {
 	// 3. Assess needs position
 	AssessNeedsPosition(cf)
 
-	// 4. Debt Freedom
-
-	var baselineBuffer BaselineBuffer
+	//4.1. Immidiate Action
 
 	if cf.HasDebt && cf.UnsettledDebt > 0 {
 
-		var err error
-
-		baselineBuffer, err = CalculateBaselineBuffer(cf)
+		baselineBuffer, err := CalculateBaselineBuffer(cf)
 		if err != nil {
 			return err
 		}
 
-		//4.1. Immidiate Action
-
-		if cf.CurrentSavings > baselineBuffer.TargetAmount {
+		if cf.CurrentSavings > baselineBuffer.TargetAmount && cf.HasDebt && cf.UnsettledDebt > 0 {
 
 			fmt.Println()
 			fmt.Println("  =================================================================================")
@@ -84,11 +78,18 @@ func RunPlanner() error {
 				return err
 			}
 		}
+	}
 
-		if cf.UnsettledDebt == 0 {
-			goto debtFreedomDone
+	PrintSavingsOptimisationInfo()
+
+	// 4. Debt Freedom
+
+	if cf.HasDebt && cf.UnsettledDebt > 0 {
+
+		baselineBuffer, err := CalculateBaselineBuffer(cf)
+		if err != nil {
+			return err
 		}
-
 		// 4.2. Generate Debt Freedom Strategies
 
 		strategies, err := GenerateDebtFreedomStrategies(
@@ -263,8 +264,6 @@ func RunPlanner() error {
 			return err
 		}
 	}
-
-debtFreedomDone:
 
 	// 5. Calculate emergency fund target
 

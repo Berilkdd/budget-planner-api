@@ -1732,40 +1732,81 @@ func BuildEmergencyFundSelectablePlans(
 	return plans
 }
 
+func PrintSavingsOptimisationInfo() {
+	fmt.Println()
+	fmt.Println("  =================================================================================")
+	fmt.Println("                           SAVINGS ACCOUNT OPTIMISATION")
+	fmt.Println("  =================================================================================")
+	fmt.Println()
+
+	fmt.Println(
+		"  We compare Monzo's Instant Access Savings options",
+	)
+	fmt.Println(
+		"  across Free, Extra, Perks and Max plans as your balance changes.",
+	)
+	fmt.Println()
+
+	fmt.Println(
+		"  We review these options each month throughout your forecast",
+	)
+	fmt.Println(
+		"  and automatically use the most beneficial option in our calculations",
+	)
+	fmt.Println(
+		"  as your balance changes.",
+	)
+	fmt.Println()
+
+	fmt.Println(
+		"  This means the savings optimisation is built into your forecast",
+	)
+	fmt.Println(
+		"  and your plan is calculated using the most suitable option",
+	)
+	fmt.Println(
+		"  at each stage of your forecast.",
+	)
+	fmt.Println()
+
+	fmt.Println(
+		"  The aim is not to increase your costs.",
+	)
+	fmt.Println()
+
+	fmt.Println(
+		"  We only consider an alternative account when the",
+	)
+	fmt.Println(
+		"  additional interest is expected to outweigh its fees.",
+	)
+	fmt.Println()
+
+	fmt.Println(
+		"  We also show the balance breakpoints where a different",
+	)
+	fmt.Println(
+		"  option becomes more beneficial, so you can see when",
+	)
+	fmt.Println(
+		"  these changes occur throughout your forecast.",
+	)
+	fmt.Println()
+
+	fmt.Println(
+		"  You can learn more about Monzo Instant Access Savings here:",
+	)
+	fmt.Println(
+		"  https://monzo.com/savings-isas/instant-access",
+	)
+	fmt.Println()
+}
+
 func PrintAvailablePlans(
 	cf CurrentFinances,
 	plans []SelectablePlan,
 ) {
-	if len(plans) > 0 {
-		fmt.Println()
 
-		fmt.Println(
-			"  The figures in the table below include the savings optimisation",
-		)
-		fmt.Println(
-			"  calculations described here.",
-		)
-		fmt.Println()
-
-		fmt.Println(
-			"  To optimise the protected buffer, we compare available",
-		)
-		fmt.Println(
-			"  instant-access savings tiers each month as the balance changes.",
-		)
-		fmt.Println()
-
-		fmt.Println("  The aim is not to increase your costs.")
-		fmt.Println()
-
-		fmt.Println(
-			"  We only consider an alternative account when the",
-		)
-		fmt.Println(
-			"  additional interest is expected to outweigh its fees.",
-		)
-		fmt.Println()
-	}
 	planNumber := 1
 
 	for _, item := range plans {
@@ -1844,7 +1885,7 @@ func PrintExcessSavings(
 	PrintEmergencyFundTarget(emergencyFund)
 
 	fmt.Println(
-		"Your emergency fund is fully covered.",
+		"  Your emergency fund is fully covered.",
 	)
 
 	fmt.Println()

@@ -30,7 +30,7 @@ func (cf *CurrentFinances) ApplyImmediateDebtPayoff(
 		cf.UnsettledDebt = 0
 
 		fmt.Printf(
-			"Debt cleared: £%.2f | Remaining debt: £%.2f | Remaining savings: £%.2f\n",
+			"  Debt cleared: £%.2f | Remaining debt: £%.2f | Remaining savings: £%.2f\n",
 			float64(availableCash)/100,
 			float64(cf.UnsettledDebt)/100,
 			float64(cf.CurrentSavings)/100,
@@ -45,7 +45,7 @@ func (cf *CurrentFinances) ApplyImmediateDebtPayoff(
 	cf.CurrentSavings = baselineBuffer.TargetAmount
 
 	fmt.Printf(
-		"Partial debt payment: £%.2f | Remaining debt: £%.2f | Remaining savings: £%.2f\n",
+		"  Partial debt payment: £%.2f | Remaining debt: £%.2f | Remaining savings: £%.2f\n",
 		float64(availableCash)/100,
 		float64(cf.UnsettledDebt)/100,
 		float64(cf.CurrentSavings)/100,
