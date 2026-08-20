@@ -1851,6 +1851,12 @@ func PrintAvailablePlans(
 
 		fmt.Println()
 
+		fmt.Printf(
+			"DEBUG %s: %d breakpoints\n",
+			item.Name,
+			len(item.Breakpoints),
+		)
+
 		printTierOptimisation(
 			cf,
 			item.Breakpoints,
