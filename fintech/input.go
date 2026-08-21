@@ -11,9 +11,22 @@ import (
 )
 
 func readMoney() int64 {
-	var amount float64
-	fmt.Scan(&amount)
-	return int64(amount * 100)
+	for {
+		var amount float64
+
+		if _, err := fmt.Scan(&amount); err != nil {
+			fmt.Println("  Invalid amount. Please enter a valid number.")
+			fmt.Scanln()
+			continue
+		}
+
+		if amount < 0 {
+			fmt.Println("  Invalid amount. Please enter a non-negative number.")
+			continue
+		}
+
+		return int64(amount * 100)
+	}
 }
 
 func readOptionalPercentage() int64 {
@@ -48,16 +61,27 @@ func CollectCurrentFinances() CurrentFinances {
 	fmt.Println("  2. Self-employed")
 
 	var employmentChoice int
-	fmt.Print("  Enter your choice: ")
-	fmt.Scan(&employmentChoice)
 
-	switch employmentChoice {
-	case 1:
-		cf.EmploymentStatus = Employee
-	case 2:
-		cf.EmploymentStatus = SelfEmployed
-	default:
-		cf.EmploymentStatus = Employee
+	for {
+		fmt.Print("  Enter your choice: ")
+
+		if _, err := fmt.Scan(&employmentChoice); err != nil {
+			fmt.Println("  Invalid choice. Please enter 1 or 2.")
+			fmt.Scanln()
+			continue
+		}
+
+		if employmentChoice == 1 {
+			cf.EmploymentStatus = Employee
+			break
+		}
+
+		if employmentChoice == 2 {
+			cf.EmploymentStatus = SelfEmployed
+			break
+		}
+
+		fmt.Println("  Invalid choice. Please enter 1 or 2.")
 	}
 
 	// Essential expenses
