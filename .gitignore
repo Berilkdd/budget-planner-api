@@ -9,6 +9,7 @@
 bin/
 obj/
 .go/
+dist/
 
 # Operating System files
 Thumbs.db
