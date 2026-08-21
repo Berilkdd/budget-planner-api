@@ -389,9 +389,8 @@ func SelectPlan(
 			continue
 		}
 
-		return SelectablePlan{}, errors.New(
-			"invalid plan selection",
-		)
+		fmt.Println("  Invalid choice. Please select one of the available options.")
+		continue
 
 	}
 }

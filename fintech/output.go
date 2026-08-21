@@ -1626,19 +1626,22 @@ func BuildDebtFreedomSelectablePlans(
 			name:         "Sustainable Plan",
 			plan:         strategies.Sustainable,
 			wantsPercent: 30,
-			description:  "leaving more flexibility for lifestyle spending while prioritising steady debt repayment and financial progress.",
+			description: "leaving more flexibility for lifestyle spending while prioritising " +
+				"steady debt repayment and financial progress.",
 		},
 		{
 			name:         "Moderate Plan",
 			plan:         strategies.Moderate,
 			wantsPercent: 25,
-			description:  "balancing lifestyle spending with a stronger contribution towards debt repayment and financial progress.",
+			description: "balancing lifestyle spending with a stronger contribution towards debt repayment " +
+				"and financial progress.",
 		},
 		{
 			name:         "Aggressive Plan",
 			plan:         strategies.Aggressive,
 			wantsPercent: 20,
-			description:  "prioritising faster debt repayment by directing more of the remaining income towards financial progress.",
+			description: "prioritising faster debt repayment by directing more of the remaining income " +
+				"towards financial progress.",
 		},
 	}
 
@@ -1702,13 +1705,15 @@ func BuildEmergencyFundSelectablePlans(
 			name:         "Moderate Plan",
 			plan:         strategies.Moderate,
 			wantsPercent: 25,
-			description:  "balancing lifestyle spending with a stronger contribution towards your financial safety net.",
+			description: "balancing lifestyle spending with a stronger contribution towards your " +
+				"financial safety net.",
 		},
 		{
 			name:         "Aggressive Plan",
 			plan:         strategies.Aggressive,
 			wantsPercent: 20,
-			description:  "prioritising financial safety by directing more of the remaining income towards your emergency fund.",
+			description: "prioritising financial safety by directing more of the remaining income" +
+				"towards your emergency fund.",
 		},
 	}
 
