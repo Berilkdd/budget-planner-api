@@ -210,7 +210,7 @@ func AssessDeficitPosition(cf CurrentFinances) {
 
 func AssessNeedsPosition(cf CurrentFinances) {
 
-	needsPercentage := (cf.Needs * 100) / cf.Income
+	needsPercentage := (float64(cf.Needs) * 100) / float64(cf.Income)
 
 	if needsPercentage < 50 {
 		fmt.Println(
