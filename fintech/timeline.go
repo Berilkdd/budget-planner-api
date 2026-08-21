@@ -237,6 +237,7 @@ type DebtForecast struct {
 	Phase1InterestLost    int64
 	Phase2InterestLost    int64
 	InterestOver50Percent bool
+	RepaymentNotReducing  bool
 }
 
 func CalculateDebtTimeline(
@@ -306,6 +307,17 @@ func CalculateDebtTimeline(
 		monthlyInterest := (runningDebt * interestAER) / 10000 / 12
 
 		runningDebt += monthlyInterest
+
+		if monthlyInterest >= monthlySave {
+			return DebtForecast{
+				Phase2Months:          phase2Months,
+				Phase2Surplus:         0,
+				Phase1InterestLost:    phase1InterestLost,
+				Phase2InterestLost:    phase2InterestLost,
+				InterestOver50Percent: interestOver50Percent,
+				RepaymentNotReducing:  true,
+			}, nil
+		}
 		phase2InterestLost += monthlyInterest
 
 		// Only check Phase 2 if Phase 1 has not already triggered
@@ -480,8 +492,18 @@ func calculateDebtFreedomPlan(
 		bufferForecast.Phase1Months,
 		bufferForecast.Phase1Surplus,
 	)
+
 	if err != nil {
 		return DebtFreedomPlan{}, err
+	}
+
+	if debtForecast.RepaymentNotReducing {
+		return DebtFreedomPlan{
+			Available:      false,
+			Allocation:     strategy.Allocations,
+			BaselineBuffer: baselineBuffer,
+			DebtForecast:   debtForecast,
+		}, nil
 	}
 
 	bufferGrowth := CalculateBufferGrowthDuringDebt(
@@ -611,6 +633,7 @@ func GenerateDebtFreedomStrategies(
 		allocations.Sustainable,
 		baselineBuffer,
 	)
+
 	if err != nil {
 		return DebtFreedomStrategies{}, err
 	}

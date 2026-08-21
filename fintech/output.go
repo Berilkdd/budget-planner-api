@@ -1851,12 +1851,6 @@ func PrintAvailablePlans(
 
 		fmt.Println()
 
-		fmt.Printf(
-			"DEBUG %s: %d breakpoints\n",
-			item.Name,
-			len(item.Breakpoints),
-		)
-
 		printTierOptimisation(
 			cf,
 			item.Breakpoints,
@@ -1941,4 +1935,6 @@ func PrintExcessSavings(
 	fmt.Println(
 		"  or other longer-term financial goals, depending on your circumstances.",
 	)
+	fmt.Println()
+	fmt.Println()
 }

@@ -1104,7 +1104,7 @@ func TestCalculateDebtTimeline(t *testing.T) {
 			expectedErr:                nil,
 		},
 		{
-			name: "Debt cleared during first Phase 2 month",
+			name: "  Debt cleared during first Phase 2 month",
 			input: CurrentFinances{
 				UnsettledDebt:    50000,
 				DebtInterestRate: 0,
